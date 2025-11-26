@@ -1,0 +1,5 @@
+{
+  "name": "全塗装シュミレーターサンプル",
+  "description": "A sophisticated car painting quotation system allowing users to select vehicle type, paint finish, and various detailed options for an instant estimate.",
+  "requestFramePermissions": []
+}
