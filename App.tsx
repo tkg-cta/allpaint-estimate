@@ -361,7 +361,7 @@ const App: React.FC = () => {
    <p className="text-gray-500 mb-6 leading-relaxed">
     概算のお見積り結果をご確認ください。<br />
     実際の料金は、車体の状態によって変動する場合があります。<br />
-    正確なお見積りをご希望の方は、ページ下部の 「この内容で店舗に相談する」 ボタンから、<br />
+    正確なお見積りをご希望の方は、ページ下部の 「この内容で確定」 ボタンから、<br />
     お問い合わせ・ご予約ページへお進みください。<br />
     <br />
     <span className="text-red-500 text-sm">
@@ -826,7 +826,7 @@ const App: React.FC = () => {
          className="px-6 py-3 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 transition-colors flex items-center gap-2"
         >
          <ChevronLeft size={20} />
-         前のページに戻る
+         戻る
         </button>
        )}
 
@@ -842,7 +842,7 @@ const App: React.FC = () => {
           }
                   `}
         >
-         次へ進む
+         次へ
          <ChevronRight size={20} />
         </button>
        ) : (
@@ -850,8 +850,8 @@ const App: React.FC = () => {
          onClick={handleNext}
          className="px-6 py-3 rounded-full bg-primary-600 text-white font-bold hover:bg-primary-700 shadow-lg flex items-center gap-2"
         >
-         この内容で店舗に相談する
-         <ArrowRight size={20} />
+         この内容で確定
+         <ChevronRight size={20} />
         </button>
        )}
       </div>
