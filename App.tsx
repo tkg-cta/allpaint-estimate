@@ -83,8 +83,10 @@ const App: React.FC = () => {
     price = option.price[selectedVehicle.category];
    }
 
-   // Treat all values as 1 unit if true/positive
-   if (value) {
+   // Calculate total based on quantity if number, or 1 if boolean true
+   if (typeof value === 'number') {
+    total += price * value;
+   } else if (value) {
     total += price;
    }
   });
@@ -143,7 +145,8 @@ const App: React.FC = () => {
     } else {
      price = option.price[selectedVehicle.category];
     }
-    return { name: option.name, price };
+    const quantity = typeof value === 'number' ? value : 1;
+    return { name: option.name, price: price * quantity, quantity };
    })
    .filter(Boolean);
 

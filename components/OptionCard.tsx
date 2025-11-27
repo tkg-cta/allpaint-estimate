@@ -55,7 +55,7 @@ export const OptionCard: React.FC<OptionCardProps> = ({ option, vehicleSize, val
    className={`
         relative overflow-hidden rounded-xl border-2 transition-all duration-200 
         flex flex-row md:flex-col bg-white hover:shadow-md group
-        ${isSelected ? 'border-primary-500 bg-primary-50 ring-1 ring-primary-200 md:shadow-lg md:shadow-primary-100 md:scale-105' : 'border-gray-200 hover:border-primary-300'}
+        ${isSelected ? 'border-primary-500 bg-primary-50 ring-1 ring-primary-200 md:shadow-lg md:shadow-primary-100' : 'border-gray-200 hover:border-primary-300'}
         ${option.pricingType !== PricingType.PER_UNIT ? 'cursor-pointer' : ''}
       `}
    onClick={handleToggle}
@@ -68,7 +68,7 @@ export const OptionCard: React.FC<OptionCardProps> = ({ option, vehicleSize, val
     <img
      src={option.image}
      alt={option.name}
-     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 md:group-hover:scale-110"
+     className="w-full h-full object-cover transition-transform duration-500"
     />
     {isSelected && option.pricingType !== PricingType.PER_UNIT && (
      <div className="absolute top-2 left-2 md:top-3 md:right-3 md:left-auto bg-primary-600 text-white rounded-full p-1 md:p-2 shadow-sm z-10">
@@ -120,11 +120,6 @@ export const OptionCard: React.FC<OptionCardProps> = ({ option, vehicleSize, val
       <span className={`text-lg md:text-xl font-bold ${isSelected ? 'text-primary-700' : 'text-gray-900'}`}>
        ¥{displayPrice.toLocaleString()}
       </span>
-      {option.unitLabel && !isSelected && (
-       <span className="text-xs md:text-sm text-gray-500 ml-1">
-        / {option.unitLabel}
-       </span>
-      )}
      </div>
     </div>
    </div>
