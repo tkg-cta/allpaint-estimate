@@ -14,7 +14,18 @@
  * 10. 「デプロイ」をクリック
  * 11. 表示されるウェブアプリのURLをコピー
  * 12. .env.localファイルに設定
+
+
+ * Google Apps Script - お問い合わせフォーム メール送信 
+ * * 変更点:
+ * ・doPost関数に、スプレッドシートへのデータ追記機能を追加しました。
  */
+
+// **********************************************
+// ⚠️ スプレッドシート情報
+// **********************************************
+const SPREADSHEET_ID = '12LQ7kj1_RSucxOoRKe9rybmTqDMgbkwD3QXKnWNdUos'; // あなたのスプレッドシートID
+const SHEET_NAME = '問い合わせ一覧'; // あなたのシート名
 
 // 設定
 const CONFIG = {
@@ -30,6 +41,8 @@ const CONFIG = {
  // メール件名
  SUBJECT: '【お問い合わせ】全塗装シミュレーターからのお問い合わせ',
 };
+// **********************************************
+
 
 /**
  * POSTリクエストを処理
@@ -39,10 +52,11 @@ function doPost(e) {
   // リクエストボディをパース
   const data = JSON.parse(e.postData.contents);
 
-  // メール本文を作成
-  const emailBody = createEmailBody(data);
+  // --- 【追加機能】スプレッドシートにデータを記録 ---
+  recordToSpreadsheet(data);
 
-  // メール送信
+  // --- 【既存機能】メール送信 ---
+  const emailBody = createEmailBody(data);
   GmailApp.sendEmail(
    CONFIG.TO_EMAIL,
    CONFIG.SUBJECT,
@@ -57,7 +71,7 @@ function doPost(e) {
   // 成功レスポンス
   return createResponse({
    success: true,
-   message: 'メールを送信しました'
+   message: 'メールとデータを送信しました'
   });
 
  } catch (error) {
@@ -65,13 +79,50 @@ function doPost(e) {
   console.error('Error:', error);
   return createResponse({
    success: false,
-   message: 'メール送信に失敗しました: ' + error.message
+   message: '処理に失敗しました: ' + error.message
   }, 500);
  }
 }
 
 /**
- * メール本文を作成
+ * スプレッドシートにデータを追記する関数
+ */
+function recordToSpreadsheet(data) {
+ const { customer, quote } = data;
+
+ // 選択されたオプションをカンマ区切りで結合
+ const optionsList = quote.options
+  ? quote.options.map(opt => opt.name).join(', ')
+  : '';
+
+ // スプレッドシートのヘッダー順に合わせたデータ配列を作成
+ // (A:記録日時, B:お名前, C:メールアドレス, D:合計金額, E:車両, F:塗装タイプ, G:選択オプション一覧, H:お問い合わせ区分, I:お問い合わせ内容)
+ const rowData = [
+  new Date(), // 1. 記録日時
+  customer.name, // 2. お名前
+  customer.email, // 3. メールアドレス
+  quote.totalPrice, // 4. 合計金額
+  quote.vehicle.name, // 5. 車両
+  quote.paint.name, // 6. 塗装タイプ
+  optionsList, // 7. 選択オプション一覧
+  customer.inquiryType === 'visit' ? '店舗への来店見積もり' : 'お問い合わせのみ', // 8. お問い合わせ区分
+  customer.inquiry, // 9. お問い合わせ内容
+ ];
+
+ const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+ const sheet = ss.getSheetByName(SHEET_NAME);
+
+ if (!sheet) {
+  throw new Error(`シート名 "${SHEET_NAME}" が見つかりません。名前を確認してください。`);
+ }
+
+ // シートの最終行にデータを追記
+ sheet.appendRow(rowData);
+}
+
+
+/**
+ * メール本文を作成 (既存関数)
  */
 function createEmailBody(data) {
  const { customer, quote } = data;
@@ -173,4 +224,3 @@ function doGet() {
   timestamp: new Date().toISOString()
  });
 }
-
