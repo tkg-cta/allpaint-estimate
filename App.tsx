@@ -788,7 +788,7 @@ const App: React.FC = () => {
        {currentStep > 0 && (
         <button
          onClick={handleBack}
-         className="px-2 py-1.5 md:px-6 md:py-3 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 transition-colors flex items-center gap-1 text-xs md:text-base whitespace-nowrap"
+         className="px-2 py-1.5 md:px-6 md:py-3 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 transition-colors flex items-center gap-1 text-sm md:text-base whitespace-nowrap"
         >
          <ChevronLeft size={16} className="md:w-5 md:h-5" />
          <span className="hidden sm:inline">戻る</span>
@@ -800,7 +800,7 @@ const App: React.FC = () => {
          onClick={handleNext}
          disabled={(currentStep === 0 && !selectedVehicle) || (currentStep === 1 && !selectedPaint)}
          className={`
-                     flex items-center gap-1 px-3 py-1.5 md:px-6 md:py-3 rounded-full font-bold text-white shadow-lg transition-all text-xs md:text-base whitespace-nowrap
+                     flex items-center gap-1 px-3 py-1.5 md:px-6 md:py-3 rounded-full font-bold text-white shadow-lg transition-all text-sm md:text-base whitespace-nowrap
                      ${((currentStep === 0 && !selectedVehicle) || (currentStep === 1 && !selectedPaint))
            ? 'bg-gray-300 cursor-not-allowed shadow-none'
            : 'bg-primary-600 hover:bg-primary-700 hover:shadow-primary-200 hover:-translate-y-0.5'
@@ -813,7 +813,7 @@ const App: React.FC = () => {
        ) : (
         <button
          onClick={handleNext}
-         className="px-3 py-1.5 md:px-6 md:py-3 rounded-full bg-primary-600 text-white font-bold hover:bg-primary-700 shadow-lg flex items-center gap-1 text-xs md:text-base whitespace-nowrap"
+         className="px-3 py-1.5 md:px-6 md:py-3 rounded-full bg-primary-600 text-white font-bold hover:bg-primary-700 shadow-lg flex items-center gap-1 text-sm md:text-base whitespace-nowrap"
         >
          この内容で確定
          <ChevronRight size={16} className="md:w-5 md:h-5" />
@@ -825,4 +825,4 @@ const App: React.FC = () => {
    )}
   </div>
  );
-};export default App;
+}; export default App;
