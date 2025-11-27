@@ -14,11 +14,12 @@
  * 10. 「デプロイ」をクリック
  * 11. 表示されるウェブアプリのURLをコピー
  * 12. .env.localファイルに設定
+ */
 
-
+/**
  * Google Apps Script - お問い合わせフォーム メール送信 
  * * 変更点:
- * ・doPost関数に、スプレッドシートへのデータ追記機能を追加しました。
+ * ・recordToSpreadsheet関数に、「お電話番号」と「希望来店日時(3つ)」を追加しました。
  */
 
 // **********************************************
@@ -95,18 +96,30 @@ function recordToSpreadsheet(data) {
   ? quote.options.map(opt => opt.name).join(', ')
   : '';
 
+ // Helper function to format date and time for the sheet
+ const formatDateTime = (date, time) => {
+  if (!date && !time) return '';
+  // 例: "2025-12-01 10:00"
+  return `${date || '日付未指定'} ${time || '時間未指定'}`;
+ };
+
  // スプレッドシートのヘッダー順に合わせたデータ配列を作成
- // (A:記録日時, B:お名前, C:メールアドレス, D:合計金額, E:車両, F:塗装タイプ, G:選択オプション一覧, H:お問い合わせ区分, I:お問い合わせ内容)
+ // (A:記録日時, B:お名前, C:メールアドレス, D:お電話番号, E:合計金額, F:車両, G:塗装タイプ, H:選択オプション一覧, I:お問い合わせ区分, J:希望来店日時(1), K:希望来店日時(2), L:希望来店日時(3), M:お問い合わせ内容)
  const rowData = [
   new Date(), // 1. 記録日時
   customer.name, // 2. お名前
   customer.email, // 3. メールアドレス
-  quote.totalPrice, // 4. 合計金額
-  quote.vehicle.name, // 5. 車両
-  quote.paint.name, // 6. 塗装タイプ
-  optionsList, // 7. 選択オプション一覧
-  customer.inquiryType === 'visit' ? '店舗への来店見積もり' : 'お問い合わせのみ', // 8. お問い合わせ区分
-  customer.inquiry, // 9. お問い合わせ内容
+  customer.phone, // 4. お電話番号 (追加)
+  quote.totalPrice, // 5. 合計金額 (列移動)
+  quote.vehicle.name, // 6. 車両 (列移動)
+  quote.paint.name, // 7. 塗装タイプ (列移動)
+  optionsList, // 8. 選択オプション一覧 (列移動)
+  customer.inquiryType === 'visit' ? '店舗への来店見積もり' : 'お問い合わせのみ', // 9. お問い合わせ区分 (列移動)
+  // 10-12. 来店予定の日時 (追加)
+  formatDateTime(customer.preferredDate1, customer.preferredTime1),
+  formatDateTime(customer.preferredDate2, customer.preferredTime2),
+  formatDateTime(customer.preferredDate3, customer.preferredTime3),
+  customer.inquiry, // 13. お問い合わせ内容 (列移動)
  ];
 
  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -139,7 +152,7 @@ function createEmailBody(data) {
  body += '─────────────────────────────────\n';
  body += `お名前: ${customer.name} 様\n`;
  body += `ふりがな: ${customer.furigana}\n`;
- body += `電話番号: ${customer.phone}\n`;
+ body += `電話番号: ${customer.phone}\n`; // ここは元々メール本文に記載済み
  body += `メールアドレス: ${customer.email}\n\n`;
 
  // お問い合わせ区分
@@ -204,7 +217,7 @@ function createEmailBody(data) {
 }
 
 /**
- * JSONレスポンスを作成
+ * JSONレスポンスを作成 (既存関数)
  */
 function createResponse(data, statusCode = 200) {
  const output = ContentService.createTextOutput(JSON.stringify(data));
@@ -215,7 +228,7 @@ function createResponse(data, statusCode = 200) {
 }
 
 /**
- * GETリクエストを処理（動作確認用）
+ * GETリクエストを処理（動作確認用） (既存関数)
  */
 function doGet() {
  return createResponse({
