@@ -3,6 +3,8 @@ import { VEHICLES, PAINTS, OPTIONS } from './constants';
 import { VehicleType, PaintType, SelectedOptions, PricingType } from './types';
 import { StepWizard } from './components/StepWizard';
 import { OptionCard } from './components/OptionCard';
+import { VehicleCard } from './components/VehicleCard';
+import { PaintCard } from './components/PaintCard';
 import { ChevronRight, ChevronLeft, Car, ArrowRight, RotateCcw, Calendar, Mail, Phone, User, Send, Clock, CheckCircle, Edit2, Loader2, MessageCircle } from 'lucide-react';
 
 interface FormData {
@@ -190,28 +192,14 @@ const App: React.FC = () => {
   <div className="animate-fade-in">
    <h2 className="text-2xl font-bold text-primary-900 mb-2">Step 1. お車をお選びください</h2>
    <p className="text-gray-500 mb-6">塗装を行う車両のタイプを選択してください。</p>
-   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     {VEHICLES.map((vehicle) => (
-     <div
+     <VehicleCard
       key={vehicle.id}
+      vehicle={vehicle}
+      isSelected={selectedVehicle?.id === vehicle.id}
       onClick={() => setSelectedVehicle(vehicle)}
-      className={`
-              cursor-pointer rounded-2xl border-2 p-4 transition-all hover:shadow-lg
-              flex flex-col items-center text-center
-              ${selectedVehicle?.id === vehicle.id
-        ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-200 scale-[1.02]'
-        : 'border-gray-200 bg-white hover:border-gray-300'
-       }
-            `}
-     >
-      <div className="w-full h-32 mb-4 overflow-hidden rounded-lg bg-gray-100 relative group">
-       <img src={vehicle.image} alt={vehicle.name} className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-500" />
-      </div>
-      <h3 className="font-bold text-gray-800 text-lg mb-1">{vehicle.name}</h3>
-      <p className="text-primary-600 font-semibold">
-       ¥{vehicle.basePrice.toLocaleString()}〜
-      </p>
-     </div>
+     />
     ))}
    </div>
   </div>
@@ -221,36 +209,14 @@ const App: React.FC = () => {
   <div className="animate-fade-in">
    <h2 className="text-2xl font-bold text-primary-900 mb-2">Step 2. 塗装タイプをお選びください</h2>
    <p className="text-gray-500 mb-6">ご希望の仕上がりイメージを選択してください。</p>
-   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     {PAINTS.map((paint) => (
-     <div
+     <PaintCard
       key={paint.id}
+      paint={paint}
+      isSelected={selectedPaint?.id === paint.id}
       onClick={() => setSelectedPaint(paint)}
-      className={`
-              cursor-pointer rounded-2xl border-2 overflow-hidden transition-all hover:shadow-xl
-              ${selectedPaint?.id === paint.id
-        ? 'border-primary-500 ring-2 ring-primary-200'
-        : 'border-gray-200 bg-white hover:border-gray-300'
-       }
-            `}
-     >
-      <div className="h-40 overflow-hidden bg-gray-200">
-       <img src={paint.image} alt={paint.name} className="w-full h-full object-cover" />
-      </div>
-      <div className="p-5">
-       <div className="flex justify-between items-center mb-2">
-        <h3 className="font-bold text-xl text-gray-800">{paint.name}</h3>
-        {selectedPaint?.id === paint.id && <div className="w-3 h-3 rounded-full bg-primary-500"></div>}
-       </div>
-       <p className="text-gray-600 text-sm mb-4 h-10">{paint.description}</p>
-       <div className="pt-4 border-t border-gray-100 text-right">
-        <span className="text-sm text-gray-500 mr-2">追加料金</span>
-        <span className="text-xl font-bold text-primary-600">
-         +{paint.surcharge.toLocaleString()}円
-        </span>
-       </div>
-      </div>
-     </div>
+     />
     ))}
    </div>
   </div>
@@ -360,13 +326,10 @@ const App: React.FC = () => {
    <h2 className="text-2xl font-bold text-primary-900 mb-2">お見積もり内容の確認</h2>
    <p className="text-gray-500 mb-6 leading-relaxed">
     概算のお見積り結果をご確認ください。<br />
-    実際の料金は、車体の状態によって変動する場合があります。<br />
-    正確なお見積りをご希望の方は、ページ下部の 「この内容で確定」 ボタンから、<br />
-    お問い合わせ・ご予約ページへお進みください。<br />
+    内容に問題がなければ、下のボタンからお問い合わせページへ進めます。<br />
     <br />
     <span className="text-red-500 text-sm">
-     ※次のページに進むとお見積り概算の「再計算」ができません。<br />
-     もう一度内容を見直していただき、問題がなければ次へお進みください
+     ※次のページでは再計算ができませんので、内容をご確認のうえお進みください。
     </span>
    </p>
 
@@ -810,16 +773,18 @@ const App: React.FC = () => {
    {/* Sticky Bottom Bar (Hide on Form, Confirmation Step, and Completion Step) */}
    {currentStep < 4 && currentStep !== 6 && (
     <div className="sticky bottom-0 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] p-4 z-20 animate-slide-up">
-     <div className="max-w-4xl mx-auto flex items-center justify-between">
-      <div className="flex flex-col">
+     <div className="flex flex-col md:flex-row items-center justify-between gap-3 md:gap-4">
+      {/* Price Display */}
+      <div className="w-full md:w-auto text-center md:text-left">
        <span className="text-xs text-gray-500 font-bold uppercase tracking-wide">概算お見積もり</span>
-       <div className="flex items-baseline gap-1">
+       <div className="flex items-baseline gap-1 justify-center md:justify-start">
         <span className="text-2xl font-bold text-primary-700">¥{calculateTotal.toLocaleString()}</span>
-        <span className="text-sm text-gray-400"> (税込)</span>
+        <span className="text-sm text-gray-400">(税込)</span>
        </div>
       </div>
 
-      <div className="flex gap-3">
+      {/* Navigation Buttons */}
+      <div className="flex gap-3 w-full md:w-auto justify-center">
        {currentStep > 0 && (
         <button
          onClick={handleBack}
@@ -835,12 +800,12 @@ const App: React.FC = () => {
          onClick={handleNext}
          disabled={(currentStep === 0 && !selectedVehicle) || (currentStep === 1 && !selectedPaint)}
          className={`
-                    flex items-center gap-2 px-6 py-3 rounded-full font-bold text-white shadow-lg transition-all
-                    ${((currentStep === 0 && !selectedVehicle) || (currentStep === 1 && !selectedPaint))
+                     flex items-center gap-2 px-6 py-3 rounded-full font-bold text-white shadow-lg transition-all
+                     ${((currentStep === 0 && !selectedVehicle) || (currentStep === 1 && !selectedPaint))
            ? 'bg-gray-300 cursor-not-allowed shadow-none'
            : 'bg-primary-600 hover:bg-primary-700 hover:shadow-primary-200 hover:-translate-y-0.5'
           }
-                  `}
+                   `}
         >
          次へ
          <ChevronRight size={20} />
