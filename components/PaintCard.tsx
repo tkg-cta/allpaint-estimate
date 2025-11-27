@@ -6,9 +6,10 @@ interface PaintCardProps {
  paint: PaintType;
  isSelected: boolean;
  onClick: () => void;
+ price: number;
 }
 
-export const PaintCard: React.FC<PaintCardProps> = ({ paint, isSelected, onClick }) => {
+export const PaintCard: React.FC<PaintCardProps> = ({ paint, isSelected, onClick, price }) => {
  return (
   <div
    className={`
@@ -50,9 +51,9 @@ export const PaintCard: React.FC<PaintCardProps> = ({ paint, isSelected, onClick
     </div>
 
     <div className="text-right mt-1 md:mt-auto md:flex md:items-baseline md:justify-between">
-     <span className="hidden md:inline text-sm text-gray-500">追加料金</span>
+     <span className="hidden md:inline text-sm text-gray-500">塗装料金</span>
      <span className={`text-lg md:text-xl font-bold ${isSelected ? 'text-primary-700' : 'text-gray-900'}`}>
-      +¥{paint.surcharge.toLocaleString()}
+      ¥{price.toLocaleString()}
      </span>
     </div>
    </div>

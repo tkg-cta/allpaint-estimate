@@ -60,8 +60,17 @@ const App: React.FC = () => {
 
  const calculateTotal = useMemo(() => {
   let total = 0;
-  if (selectedVehicle) total += selectedVehicle.basePrice;
-  if (selectedPaint) total += selectedPaint.surcharge;
+
+  // Base Painting Price (Vehicle + Paint)
+  if (selectedVehicle) {
+   if (selectedPaint) {
+    // Specific price for the selected paint
+    total += selectedVehicle.prices[selectedPaint.id];
+   } else {
+    // Default to solid price for initial display
+    total += selectedVehicle.prices.solid;
+   }
+  }
 
   Object.entries(selectedOptions).forEach(([optionId, value]) => {
    const option = OPTIONS.find(o => o.id === optionId);
@@ -216,6 +225,8 @@ const App: React.FC = () => {
       paint={paint}
       isSelected={selectedPaint?.id === paint.id}
       onClick={() => setSelectedPaint(paint)}
+      // Pass the specific price for this paint on the selected vehicle
+      price={selectedVehicle ? selectedVehicle.prices[paint.id] : 0}
      />
     ))}
    </div>
@@ -272,17 +283,20 @@ const App: React.FC = () => {
     <div className="flex-1">
      <div className="flex justify-between items-baseline mb-2">
       <span className="text-sm text-gray-400 font-bold uppercase tracking-wider">車両の種類</span>
-      <span className="font-semibold text-gray-600">¥{selectedVehicle?.basePrice.toLocaleString()}</span>
+      <span className="font-semibold text-gray-600">{selectedVehicle?.name}</span>
      </div>
-     <div className="text-lg font-bold text-gray-800 mb-4">{selectedVehicle?.name}</div>
 
      <div className="flex justify-between items-baseline mb-2">
-      <span className="text-sm text-gray-400 font-bold uppercase tracking-wider">塗装のタイプ</span>
-      <span className="font-semibold text-gray-600">
-       {selectedPaint?.surcharge ? `+¥${selectedPaint.surcharge.toLocaleString()}` : '±0'}
+      <span className="text-sm text-gray-400 font-bold uppercase tracking-wider">塗装タイプ</span>
+      <span className="font-semibold text-gray-600">{selectedPaint?.name}</span>
+     </div>
+
+     <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-baseline">
+      <span className="text-base font-bold text-gray-800">基本塗装料金</span>
+      <span className="text-xl font-bold text-primary-700">
+       ¥{selectedVehicle && selectedPaint ? selectedVehicle.prices[selectedPaint.id].toLocaleString() : 0}
       </span>
      </div>
-     <div className="text-lg font-bold text-gray-800">{selectedPaint?.name}</div>
     </div>
    </div>
 

@@ -44,14 +44,14 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle, isSelected, o
      <h3 className={`font-bold text-sm sm:text-base md:text-lg leading-tight mb-1 md:mb-2 ${isSelected ? 'text-primary-900' : 'text-gray-800'}`}>
       {vehicle.name}
      </h3>
-     <div className="hidden md:block text-sm text-gray-500 mb-1">基本料金</div>
+     <div className="hidden md:block text-sm text-gray-500 mb-1">塗装基本料金</div>
     </div>
 
     <div className="text-right md:flex md:items-baseline md:justify-between md:mt-auto">
      <span className="hidden md:inline text-sm text-gray-500"></span>
      <span className={`text-lg md:text-xl font-bold ${isSelected ? 'text-primary-700' : 'text-gray-900'}`}>
-      ¥{vehicle.basePrice.toLocaleString()}
-      <span className="md:hidden text-xs text-gray-500 font-normal ml-1">〜</span>
+      ¥{vehicle.prices.solid.toLocaleString()}
+      <span className="text-xs md:text-sm text-gray-500 font-normal ml-1">〜</span>
      </span>
     </div>
    </div>
