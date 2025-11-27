@@ -50,7 +50,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle, isSelected, o
    {/* Desktop: Vertical Layout (original design) */}
    <div
     className={`
-          hidden md:block
+          hidden md:flex flex-col
           relative overflow-hidden rounded-2xl border-2 transition-all duration-300 cursor-pointer group
           ${isSelected
       ? 'border-primary-500 bg-primary-50 shadow-lg shadow-primary-100 scale-105'
