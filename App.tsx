@@ -286,13 +286,13 @@ const App: React.FC = () => {
     )}
     <div className="flex-1">
      <div className="flex justify-between items-baseline mb-2">
-      <span className="text-sm text-gray-400 font-bold uppercase tracking-wider">Vehicle</span>
+      <span className="text-sm text-gray-400 font-bold uppercase tracking-wider">車両の種類</span>
       <span className="font-semibold text-gray-600">¥{selectedVehicle?.basePrice.toLocaleString()}</span>
      </div>
      <div className="text-lg font-bold text-gray-800 mb-4">{selectedVehicle?.name}</div>
 
      <div className="flex justify-between items-baseline mb-2">
-      <span className="text-sm text-gray-400 font-bold uppercase tracking-wider">Paint</span>
+      <span className="text-sm text-gray-400 font-bold uppercase tracking-wider">塗装のタイプ</span>
       <span className="font-semibold text-gray-600">
        {selectedPaint?.surcharge ? `+¥${selectedPaint.surcharge.toLocaleString()}` : '±0'}
       </span>
@@ -302,7 +302,7 @@ const App: React.FC = () => {
    </div>
 
    <div className={`${compact ? 'p-4' : 'p-6'} bg-gray-50`}>
-    <h3 className="text-sm text-gray-400 font-bold uppercase tracking-wider mb-4">Selected Options</h3>
+    <h3 className="text-sm text-gray-400 font-bold uppercase tracking-wider mb-4">追加したオプション内容</h3>
     <ul className="space-y-3">
      {Object.keys(selectedOptions).length === 0 && (
       <li className="text-gray-500 italic text-sm">オプションは選択されていません</li>
@@ -338,27 +338,20 @@ const App: React.FC = () => {
 
  const renderSummaryStep = () => (
   <div className="animate-fade-in">
-   <h2 className="text-2xl font-bold text-primary-900 mb-2">確認</h2>
-   <p className="text-gray-500 mb-6">以下の内容でシミュレーションを行いました。</p>
+   <h2 className="text-2xl font-bold text-primary-900 mb-2">お見積もり内容の確認</h2>
+   <p className="text-gray-500 mb-6 leading-relaxed">
+    概算のお見積り結果をご確認ください。<br />
+    実際の料金は、車体の状態によって変動する場合があります。<br />
+    正確なお見積りをご希望の方は、ページ下部の 「この内容で店舗に相談する」 ボタンから、<br />
+    お問い合わせ・ご予約ページへお進みください。<br />
+    <br />
+    <span className="text-red-500 text-sm">
+     ※次のページに進むとお見積り概算の「再計算」ができません。<br />
+     もう一度内容を見直していただき、問題がなければ次へお進みください
+    </span>
+   </p>
 
    {renderSummaryContent()}
-
-   <div className="flex justify-center gap-4">
-    <button
-     onClick={() => window.location.reload()}
-     className="px-6 py-3 rounded-xl border-2 border-gray-300 text-gray-600 font-bold hover:bg-gray-100 flex items-center gap-2"
-    >
-     <RotateCcw size={18} />
-     やり直す
-    </button>
-    <button
-     className="px-8 py-3 rounded-xl bg-primary-600 text-white font-bold hover:bg-primary-700 shadow-lg shadow-primary-200 transform hover:-translate-y-0.5 transition-all flex items-center gap-2"
-     onClick={handleNext}
-    >
-     この内容で問い合わせる
-     <ArrowRight size={18} />
-    </button>
-   </div>
   </div>
  );
 
@@ -743,9 +736,10 @@ const App: React.FC = () => {
        {currentStep > 0 && (
         <button
          onClick={handleBack}
-         className="p-3 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 transition-colors"
+         className="px-6 py-3 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 transition-colors flex items-center gap-2"
         >
-         <ChevronLeft size={24} />
+         <ChevronLeft size={20} />
+         前のページに戻る
         </button>
        )}
 
@@ -761,7 +755,7 @@ const App: React.FC = () => {
           }
                   `}
         >
-         次へ
+         次へ進む
          <ChevronRight size={20} />
         </button>
        ) : (
@@ -769,7 +763,7 @@ const App: React.FC = () => {
          onClick={handleNext}
          className="px-6 py-3 rounded-full bg-primary-600 text-white font-bold hover:bg-primary-700 shadow-lg flex items-center gap-2"
         >
-         申し込みへ進む
+         この内容で店舗に相談する
          <ArrowRight size={20} />
         </button>
        )}
