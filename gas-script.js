@@ -91,6 +91,12 @@ function createEmailBody(data) {
  body += `電話番号: ${customer.phone}\n`;
  body += `メールアドレス: ${customer.email}\n\n`;
 
+ // お問い合わせ区分
+ if (customer.inquiryType) {
+  const typeLabel = customer.inquiryType === 'visit' ? '店舗への来店見積もり' : 'お問い合わせのみ';
+  body += `お問い合わせ区分: ${typeLabel}\n\n`;
+ }
+
  // 希望来店日時
  body += '【ご希望来店日時】\n';
  body += '─────────────────────────────────\n';
@@ -125,11 +131,13 @@ function createEmailBody(data) {
  body += `追加料金: +¥${quote.paint.surcharge.toLocaleString()}\n\n`;
 
  // オプション
- if (Object.keys(quote.options).length > 0) {
+ if (quote.options && quote.options.length > 0) {
   body += '【選択オプション】\n';
   body += '─────────────────────────────────\n';
-  // オプションの詳細は省略（必要に応じて追加）
-  body += `選択オプション数: ${Object.keys(quote.options).length}件\n\n`;
+  quote.options.forEach(opt => {
+   body += `・${opt.name}: ¥${opt.price.toLocaleString()}\n`;
+  });
+  body += `\n選択オプション数: ${quote.options.length}件\n\n`;
  }
 
  // 合計金額

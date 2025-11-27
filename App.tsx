@@ -17,6 +17,7 @@ interface FormData {
  preferredDate3: string;
  preferredTime3: string;
  inquiry: string;
+ inquiryType: 'visit' | 'inquiry_only';
 }
 
 const App: React.FC = () => {
@@ -39,6 +40,7 @@ const App: React.FC = () => {
   preferredDate3: '',
   preferredTime3: '',
   inquiry: '',
+  inquiryType: 'visit',
  });
 
  // Business hours: 08:00 - 19:00
@@ -117,12 +119,29 @@ const App: React.FC = () => {
   setIsSubmitting(true);
 
   // --- 送信データ (JSON) の作成 ---
+  // オプションの詳細情報を構築
+  const detailedOptions = Object.entries(selectedOptions)
+   .map(([id, value]) => {
+    if (!value) return null;
+    const option = OPTIONS.find(o => o.id === id);
+    if (!option || !selectedVehicle) return null;
+
+    let price = 0;
+    if (typeof option.price === 'number') {
+     price = option.price;
+    } else {
+     price = option.price[selectedVehicle.category];
+    }
+    return { name: option.name, price };
+   })
+   .filter(Boolean);
+
   const payload = {
    customer: formData,
    quote: {
     vehicle: selectedVehicle,
     paint: selectedPaint,
-    options: selectedOptions,
+    options: detailedOptions,
     totalPrice: calculateTotal
    }
   };
@@ -357,7 +376,7 @@ const App: React.FC = () => {
 
  const renderInquiryForm = () => (
   <div className="animate-fade-in">
-   <h2 className="text-2xl font-bold text-primary-900 mb-2">お客様情報入力</h2>
+   <h2 className="text-2xl font-bold text-primary-900 mb-2">店舗へのご予約・お問い合わせ</h2>
    <p className="text-gray-500 mb-6">お見積もり内容を引き継いでいます。必要事項をご入力ください。</p>
 
    {/* Inherited Summary */}
@@ -370,77 +389,141 @@ const App: React.FC = () => {
     </div>
    </div>
 
-   <form onSubmit={handleFormSubmit} className="bg-gray-50 p-6 rounded-2xl shadow-sm border border-gray-200 space-y-6">
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-     <div>
-      <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-1">
-       <User size={16} /> お名前 <span className="text-red-500">*</span>
-      </label>
-      <input
-       required
-       type="text"
-       name="name"
-       value={formData.name}
-       onChange={handleFormChange}
-       className="w-full px-4 py-3 rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all"
-       placeholder="山田 太郎"
-      />
+   <form onSubmit={handleFormSubmit} className="space-y-8">
+    {/* Customer Info Section */}
+    <section>
+     <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+      <User className="text-primary-600" size={20} />
+      お客様の情報
+     </h3>
+     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
+       <label className="block text-sm font-bold text-gray-700 mb-2">
+        お名前 <span className="text-red-500">*</span>
+       </label>
+       <div className="relative">
+        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+        <input
+         type="text"
+         name="name"
+         required
+         value={formData.name}
+         onChange={handleFormChange}
+         className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition-all"
+         placeholder="山田 太郎"
+        />
+       </div>
+      </div>
+      <div>
+       <label className="block text-sm font-bold text-gray-700 mb-2">
+        ふりがな <span className="text-red-500">*</span>
+       </label>
+       <input
+        type="text"
+        name="furigana"
+        required
+        value={formData.furigana}
+        onChange={handleFormChange}
+        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition-all"
+        placeholder="やまだ たろう"
+       />
+      </div>
+      <div>
+       <label className="block text-sm font-bold text-gray-700 mb-2">
+        電話番号 <span className="text-red-500">*</span>
+       </label>
+       <div className="relative">
+        <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+        <input
+         type="tel"
+         name="phone"
+         required
+         value={formData.phone}
+         onChange={handleFormChange}
+         className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition-all"
+         placeholder="090-1234-5678"
+        />
+       </div>
+      </div>
+      <div>
+       <label className="block text-sm font-bold text-gray-700 mb-2">
+        メールアドレス <span className="text-red-500">*</span>
+       </label>
+       <div className="relative">
+        <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+        <input
+         type="email"
+         name="email"
+         required
+         value={formData.email}
+         onChange={handleFormChange}
+         className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition-all"
+         placeholder="example@email.com"
+        />
+       </div>
+      </div>
      </div>
-     <div>
-      <label className="block text-sm font-bold text-gray-700 mb-2">ふりがな <span className="text-red-500">*</span></label>
-      <input
-       required
-       type="text"
-       name="furigana"
-       value={formData.furigana}
-       onChange={handleFormChange}
-       className="w-full px-4 py-3 rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all"
-       placeholder="やまだ たろう"
-      />
-     </div>
-    </div>
+    </section>
 
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-     <div>
-      <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-1">
-       <Phone size={16} /> 電話番号 <span className="text-red-500">*</span>
+    {/* Inquiry Type Section */}
+    <section>
+     <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+      <CheckCircle className="text-primary-600" size={20} />
+      お問い合わせ区分
+     </h3>
+     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
+      <label className={`
+       cursor-pointer p-4 rounded-xl border-2 transition-all flex items-center gap-3
+       ${formData.inquiryType === 'visit'
+        ? 'border-primary-500 bg-primary-50'
+        : 'border-gray-200 hover:border-gray-300'
+       }
+      `}>
+       <input
+        type="radio"
+        name="inquiryType"
+        value="visit"
+        checked={formData.inquiryType === 'visit'}
+        onChange={handleFormChange}
+        className="w-5 h-5 text-primary-600 focus:ring-primary-500"
+       />
+       <span className="font-bold text-gray-700">実際に店舗へご来店してお見積り依頼する</span>
       </label>
-      <input
-       required
-       type="tel"
-       name="phone"
-       value={formData.phone}
-       onChange={handleFormChange}
-       className="w-full px-4 py-3 rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all"
-       placeholder="090-1234-5678"
-      />
-     </div>
-     <div>
-      <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-1">
-       <Mail size={16} /> メールアドレス <span className="text-red-500">*</span>
+      <label className={`
+       cursor-pointer p-4 rounded-xl border-2 transition-all flex items-center gap-3
+       ${formData.inquiryType === 'inquiry_only'
+        ? 'border-primary-500 bg-primary-50'
+        : 'border-gray-200 hover:border-gray-300'
+       }
+      `}>
+       <input
+        type="radio"
+        name="inquiryType"
+        value="inquiry_only"
+        checked={formData.inquiryType === 'inquiry_only'}
+        onChange={handleFormChange}
+        className="w-5 h-5 text-primary-600 focus:ring-primary-500"
+       />
+       <span className="font-bold text-gray-700">お問い合わせのみを希望</span>
       </label>
-      <input
-       required
-       type="email"
-       name="email"
-       value={formData.email}
-       onChange={handleFormChange}
-       className="w-full px-4 py-3 rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all"
-       placeholder="example@email.com"
-      />
      </div>
-    </div>
+     <p className="text-sm text-gray-500 ml-1">
+      ご来店お見積りをご希望の方は、この下の来店日時をご入力ください
+     </p>
+    </section>
 
-    <div className="border-t border-gray-200 pt-6">
-     <label className="block text-sm font-bold text-gray-700 mb-4 flex items-center gap-1">
-      <Calendar size={16} /> ご希望の来店日時 (3つまで)
-     </label>
-     <p className="text-xs text-gray-500 mb-4">
-      営業時間: 08:00〜19:00 (1時間単位でご指定いただけます)
+    {/* Date Selection */}
+    <section>
+     <h3 className="text-lg font-bold text-gray-800 mb-2 flex items-center gap-2">
+      <Calendar className="text-primary-600" size={20} />
+      ご来店の日時の候補日
+     </h3>
+     <p className="text-sm text-gray-500 mb-4 ml-1">
+      実店舗にご来店のお客様は、以下から日時の候補をご登録の上お問い合わせください。
      </p>
      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       {[1, 2, 3].map(num => (
-       <div key={num} className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+       <div key={num} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
         <div className="flex items-center gap-2 mb-3">
          <span className="w-5 h-5 rounded-full bg-primary-100 text-primary-700 text-xs font-bold flex items-center justify-center">{num}</span>
          <span className="text-sm font-bold text-gray-700">第{num}希望</span>
@@ -495,18 +578,22 @@ const App: React.FC = () => {
        </div>
       ))}
      </div>
-    </div>
+    </section>
 
-    <div>
-     <label className="block text-sm font-bold text-gray-700 mb-2">お問い合わせ内容・ご質問</label>
+    <section>
+     <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+      <MessageCircle className="text-primary-600" size={20} />
+      お問い合わせ内容・ご質問
+     </h3>
      <textarea
       name="inquiry"
       value={formData.inquiry}
       onChange={handleFormChange}
-      className="w-full px-4 py-3 rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none h-32 resize-none"
-      placeholder="その他、気になる点やご質問があればご記入ください。"
+      rows={4}
+      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition-all"
+      placeholder="ご質問やご要望がございましたらご記入ください。"
      />
-    </div>
+    </section>
 
     <div className="pt-4 flex justify-center">
      <button
