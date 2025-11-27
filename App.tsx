@@ -718,7 +718,7 @@ const App: React.FC = () => {
     </h3>
     <p className="text-sm text-gray-600 mb-6 leading-relaxed text-left">
      もしLINEをお持ちのお客様は、こちらのQRコードから<br />
-     <span className="font-bold">「モドーリ奈良運転免許センター店」</span>と<br />
+     <span className="font-bold">「モドーリー奈良運転免許センター東店」</span>と<br />
      お友達になっていただき、<br />
      <span className="text-[#06C755] font-bold">「お名前」</span>と<span className="text-[#06C755] font-bold">「お電話番号」</span>をメッセージでお送りください。
     </p>
@@ -743,12 +743,12 @@ const App: React.FC = () => {
    </div>
 
    <div className="mt-12">
-    <button
-     onClick={() => window.location.reload()}
+    <a
+     href="https://modolly-sakurai01.com/allpaint/"
      className="text-gray-400 hover:text-gray-600 text-sm font-medium underline underline-offset-4"
     >
      トップページへ戻る
-    </button>
+    </a>
    </div>
   </div>
  );
