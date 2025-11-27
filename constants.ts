@@ -108,7 +108,7 @@ export const OPTIONS: OptionItem[] = [
  {
   id: 'scratch_repair',
   name: '擦り傷補修',
-  description: '20cm×20cm以内の擦り傷を修復します',
+  description: '車体の擦り傷を補修します',
   category: 'prep',
   pricingType: PricingType.PER_UNIT,
   price: 10000,
@@ -118,7 +118,7 @@ export const OPTIONS: OptionItem[] = [
  {
   id: 'dent_repair',
   name: '凹み補修',
-  description: '20cm×20cm以内の凹みを修復します',
+  description: '車体の凹みを補修します',
   category: 'prep',
   pricingType: PricingType.PER_UNIT,
   price: 10000,
