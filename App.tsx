@@ -775,23 +775,23 @@ const App: React.FC = () => {
     <div className="sticky bottom-0 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] py-2 md:py-4 px-4 z-20 animate-slide-up">
      <div className="flex items-center justify-between gap-2 md:gap-4">
       {/* Price Display */}
-      <div className="flex flex-col">
-       <span className="text-xs text-gray-500 font-bold uppercase tracking-wide">概算お見積もり</span>
+      <div className="flex flex-col min-w-0 flex-shrink">
+       <span className="text-[10px] md:text-xs text-gray-500 font-bold uppercase tracking-wide whitespace-nowrap">概算お見積もり</span>
        <div className="flex items-baseline gap-1">
-        <span className="text-xl md:text-2xl font-bold text-primary-700">¥{calculateTotal.toLocaleString()}</span>
-        <span className="text-xs md:text-sm text-gray-400">(税込)</span>
+        <span className="text-lg md:text-2xl font-bold text-primary-700 whitespace-nowrap">¥{calculateTotal.toLocaleString()}</span>
+        <span className="text-[10px] md:text-sm text-gray-400 whitespace-nowrap">(税込)</span>
        </div>
       </div>
 
       {/* Navigation Buttons */}
-      <div className="flex gap-2 md:gap-3">
+      <div className="flex gap-2 flex-shrink-0">
        {currentStep > 0 && (
         <button
          onClick={handleBack}
-         className="px-3 py-2 md:px-6 md:py-3 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 transition-colors flex items-center gap-1 md:gap-2 text-sm md:text-base"
+         className="px-2 py-1.5 md:px-6 md:py-3 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 transition-colors flex items-center gap-1 text-xs md:text-base whitespace-nowrap"
         >
-         <ChevronLeft size={18} className="md:w-5 md:h-5" />
-         戻る
+         <ChevronLeft size={16} className="md:w-5 md:h-5" />
+         <span className="hidden sm:inline">戻る</span>
         </button>
        )}
 
@@ -800,7 +800,7 @@ const App: React.FC = () => {
          onClick={handleNext}
          disabled={(currentStep === 0 && !selectedVehicle) || (currentStep === 1 && !selectedPaint)}
          className={`
-                     flex items-center gap-1 md:gap-2 px-3 py-2 md:px-6 md:py-3 rounded-full font-bold text-white shadow-lg transition-all text-sm md:text-base
+                     flex items-center gap-1 px-3 py-1.5 md:px-6 md:py-3 rounded-full font-bold text-white shadow-lg transition-all text-xs md:text-base whitespace-nowrap
                      ${((currentStep === 0 && !selectedVehicle) || (currentStep === 1 && !selectedPaint))
            ? 'bg-gray-300 cursor-not-allowed shadow-none'
            : 'bg-primary-600 hover:bg-primary-700 hover:shadow-primary-200 hover:-translate-y-0.5'
@@ -808,15 +808,15 @@ const App: React.FC = () => {
                    `}
         >
          次へ
-         <ChevronRight size={18} className="md:w-5 md:h-5" />
+         <ChevronRight size={16} className="md:w-5 md:h-5" />
         </button>
        ) : (
         <button
          onClick={handleNext}
-         className="px-3 py-2 md:px-6 md:py-3 rounded-full bg-primary-600 text-white font-bold hover:bg-primary-700 shadow-lg flex items-center gap-1 md:gap-2 text-sm md:text-base"
+         className="px-3 py-1.5 md:px-6 md:py-3 rounded-full bg-primary-600 text-white font-bold hover:bg-primary-700 shadow-lg flex items-center gap-1 text-xs md:text-base whitespace-nowrap"
         >
          この内容で確定
-         <ChevronRight size={18} className="md:w-5 md:h-5" />
+         <ChevronRight size={16} className="md:w-5 md:h-5" />
         </button>
        )}
       </div>
