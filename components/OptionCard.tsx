@@ -54,55 +54,62 @@ export const OptionCard: React.FC<OptionCardProps> = ({ option, vehicleSize, val
   <div
    className={`
         relative overflow-hidden rounded-xl border-2 transition-all duration-200 
-        flex flex-row bg-white hover:shadow-md group
-        ${isSelected ? 'border-primary-500 bg-primary-50 ring-1 ring-primary-200' : 'border-gray-200'}
+        flex flex-row md:flex-col bg-white hover:shadow-md group
+        ${isSelected ? 'border-primary-500 bg-primary-50 ring-1 ring-primary-200 md:shadow-lg md:shadow-primary-100 md:scale-105' : 'border-gray-200 hover:border-primary-300'}
         ${option.pricingType !== PricingType.PER_UNIT ? 'cursor-pointer' : ''}
       `}
    onClick={handleToggle}
   >
-   {/* Thumbnail: Fixed Square on the Left */}
-   <div className="w-28 h-28 sm:w-32 sm:h-32 flex-shrink-0 bg-gray-100 relative border-r border-gray-100">
-    <img src={option.image} alt={option.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+   {/* Thumbnail */}
+   <div className="
+        w-28 h-28 sm:w-32 sm:h-32 md:w-full md:h-48 md:aspect-video 
+        flex-shrink-0 bg-gray-100 relative border-r md:border-r-0 md:border-b border-gray-100
+      ">
+    <img
+     src={option.image}
+     alt={option.name}
+     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 md:group-hover:scale-110"
+    />
     {isSelected && option.pricingType !== PricingType.PER_UNIT && (
-     <div className="absolute top-2 left-2 bg-primary-600 text-white rounded-full p-1 shadow-sm z-10">
-      <CheckCircle2 size={16} />
+     <div className="absolute top-2 left-2 md:top-3 md:right-3 md:left-auto bg-primary-600 text-white rounded-full p-1 md:p-2 shadow-sm z-10">
+      <CheckCircle2 size={16} className="md:w-5 md:h-5" />
      </div>
     )}
     {isSelected && option.pricingType === PricingType.PER_UNIT && quantity > 0 && (
-     <div className="absolute top-2 left-2 bg-primary-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-sm z-10 text-xs font-bold">
+     <div className="absolute top-2 left-2 md:top-3 md:right-3 md:left-auto bg-primary-600 text-white rounded-full w-6 h-6 md:w-8 md:h-8 flex items-center justify-center shadow-sm z-10 text-xs md:text-sm font-bold">
       {quantity}
      </div>
     )}
    </div>
 
-   {/* Content: Text on the Right */}
-   <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
+   {/* Content */}
+   <div className="flex-1 p-3 md:p-4 flex flex-col justify-between min-w-0">
     <div>
-     <h3 className={`font-bold text-sm sm:text-base leading-tight mb-1 ${isSelected ? 'text-primary-900' : 'text-gray-800'}`}>
+     <h3 className={`font-bold text-sm sm:text-base md:text-lg leading-tight mb-1 md:mb-2 ${isSelected ? 'text-primary-900' : 'text-gray-800'}`}>
       {option.name}
      </h3>
-     <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">
+     <p className="text-xs md:text-sm text-gray-500 md:text-gray-600 line-clamp-2 leading-relaxed mb-0 md:mb-3">
       {option.description}
      </p>
     </div>
 
-    <div className="flex items-end justify-between mt-1">
+    <div className="flex items-end justify-between mt-1 md:mt-auto">
      {/* Quantity Controls for PER_UNIT */}
      {option.pricingType === PricingType.PER_UNIT ? (
       <div className="flex items-center gap-3 bg-white rounded-lg border border-gray-200 p-1 shadow-sm" onClick={e => e.stopPropagation()}>
        <button
         onClick={handleDecrement}
         disabled={quantity === 0}
-        className="w-7 h-7 rounded-md flex items-center justify-center text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+        className="w-7 h-7 md:w-8 md:h-8 rounded-md flex items-center justify-center text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
        >
-        <Minus size={14} />
+        <Minus size={14} className="md:w-4 md:h-4" />
        </button>
-       <span className="font-bold text-gray-800 w-4 text-center text-sm">{quantity}</span>
+       <span className="font-bold text-gray-800 w-4 md:w-6 text-center text-sm md:text-base">{quantity}</span>
        <button
         onClick={handleIncrement}
-        className="w-7 h-7 rounded-md bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100 transition-colors"
+        className="w-7 h-7 md:w-8 md:h-8 rounded-md bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100 transition-colors"
        >
-        <Plus size={14} />
+        <Plus size={14} className="md:w-4 md:h-4" />
        </button>
       </div>
      ) : (
@@ -110,11 +117,11 @@ export const OptionCard: React.FC<OptionCardProps> = ({ option, vehicleSize, val
      )}
 
      <div className="text-right">
-      <span className={`text-lg font-bold ${isSelected ? 'text-primary-700' : 'text-gray-900'}`}>
+      <span className={`text-lg md:text-xl font-bold ${isSelected ? 'text-primary-700' : 'text-gray-900'}`}>
        ¥{displayPrice.toLocaleString()}
       </span>
       {option.unitLabel && !isSelected && (
-       <span className="text-xs text-gray-500 ml-1">
+       <span className="text-xs md:text-sm text-gray-500 ml-1">
         / {option.unitLabel}
        </span>
       )}
