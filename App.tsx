@@ -758,10 +758,10 @@ const App: React.FC = () => {
    {/* Header */}
    <header className="bg-white shadow-sm sticky top-0 z-30">
     <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
-     <div className="flex items-center gap-2 text-primary-700">
+     <a href="https://modolly-sakurai01.com/allpaint/" className="flex items-center gap-2 text-primary-700 hover:opacity-80 transition-opacity">
       <Car className="w-6 h-6" />
       <h1 className="font-bold text-lg tracking-tight">Modory Paint Simulator</h1>
-     </div>
+     </a>
      <div className="text-xs text-gray-500 hidden sm:block">
       カンタン全塗装シミュレーション
      </div>
