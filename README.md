@@ -1,10 +1,31 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
-
 # 全塗装シミュレーター
 
 車両の全塗装見積もりシミュレーションアプリケーション
+
+## File Structure
+
+```
+.
+├── App.tsx
+├── DEPLOY_GUIDE.md
+├── GAS_SETUP_GUIDE.md
+├── QUICKSTART.md
+├── README.md
+├── components
+│   ├── OptionCard.tsx
+│   ├── PaintCard.tsx
+│   ├── StepWizard.tsx
+│   └── VehicleCard.tsx
+├── constants.ts
+├── gas-script.js
+├── index.html
+├── index.tsx
+├── package.json
+├── tsconfig.json
+├── types.ts
+├── vite-env.d.ts
+└── vite.config.ts
+```
 
 ## Run Locally
 
