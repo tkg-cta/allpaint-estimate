@@ -50,40 +50,88 @@ const CONFIG = {
  * POSTリクエストを処理
  */
 function doPost(e) {
+ const results = {
+  spreadsheet: false,
+  email: false,
+  line: false,
+  errors: []
+ };
+
  try {
   // リクエストボディをパース
   const data = JSON.parse(e.postData.contents);
+  Logger.log('受信データ: ' + JSON.stringify(data));
 
-  // --- 【追加機能】スプレッドシートにデータを記録 ---
-  recordToSpreadsheet(data);
+  // お問い合わせ番号（初期値）
+  let inquiryNumber = '不明';
 
-  // --- 【既存機能】メール送信 ---
-  const emailBody = createEmailBody(data);
-  GmailApp.sendEmail(
-   CONFIG.TO_EMAIL,
-   CONFIG.SUBJECT,
-   emailBody,
-   {
-    from: CONFIG.FROM_EMAIL,
-    name: 'Modory Paint Simulator',
-    cc: CONFIG.CC_EMAIL
+  // --- 【1】スプレッドシートにデータを記録 ---
+  try {
+   // 戻り値としてお問い合わせ番号を受け取る
+   inquiryNumber = recordToSpreadsheet(data);
+   results.spreadsheet = true;
+   Logger.log('✅ スプレッドシート記録: 成功 (No.' + inquiryNumber + ')');
+  } catch (error) {
+   results.errors.push('スプレッドシート記録エラー: ' + error.message);
+   Logger.log('❌ スプレッドシート記録: 失敗 - ' + error.message);
+  }
+
+  // --- 【2】メール送信 ---
+  try {
+   const emailBody = createEmailBody(data);
+
+   // メール送信オプション
+   const mailOptions = {
+    name: 'Modory Paint Simulator'
+   };
+
+   // CCが設定されている場合のみ追加
+   if (CONFIG.CC_EMAIL && CONFIG.CC_EMAIL.trim() !== '') {
+    mailOptions.cc = CONFIG.CC_EMAIL;
    }
-  );
 
-  // 🔔 --- 【新規追加】LINE通知の呼び出し ---
-  const lineMessage = createNotificationBody(data); // ステップ1の関数で本文を生成
-  sendLineNotification(lineMessage); // 通知関数を呼び出す
-  // ----------------------------------------
+   // 件名を動的に生成
+   const subject = `【全塗装見積もり】${data.customer.name}様からお見積もりが到着しました`;
 
-  // 成功レスポンス
+   GmailApp.sendEmail(
+    CONFIG.TO_EMAIL,
+    subject,
+    emailBody,
+    mailOptions
+   );
+
+   results.email = true;
+   Logger.log('✅ メール送信: 成功 (To: ' + CONFIG.TO_EMAIL + ')');
+  } catch (error) {
+   results.errors.push('メール送信エラー: ' + error.message);
+   Logger.log('❌ メール送信: 失敗 - ' + error.message);
+  }
+
+  // --- 【3】LINE通知 ---
+  try {
+   // お問い合わせ番号を渡して通知本文を作成
+   const lineMessage = createNotificationBody(data, inquiryNumber);
+   sendLineNotification(lineMessage);
+   results.line = true;
+   Logger.log('✅ LINE通知: 成功');
+  } catch (error) {
+   results.errors.push('LINE通知エラー: ' + error.message);
+   Logger.log('❌ LINE通知: 失敗 - ' + error.message);
+  }
+
+  // 結果をログに出力
+  Logger.log('処理結果: ' + JSON.stringify(results));
+
+  // 成功レスポンス(一部失敗していても200を返す)
   return createResponse({
    success: true,
-   message: 'メールとデータを送信しました'
+   message: 'データを受信しました',
+   results: results
   });
 
  } catch (error) {
-  // エラーレスポンス
-  console.error('Error:', error);
+  // 致命的なエラー(JSONパースエラーなど)
+  Logger.log('❌ 致命的エラー: ' + error.message);
   return createResponse({
    success: false,
    message: '処理に失敗しました: ' + error.message
@@ -93,6 +141,7 @@ function doPost(e) {
 
 /**
  * スプレッドシートにデータを追記する関数
+ * @return {number} お問い合わせ番号
  */
 function recordToSpreadsheet(data) {
  const { customer, quote } = data;
@@ -142,9 +191,14 @@ function recordToSpreadsheet(data) {
 
  // シートの最終行にデータを追記
  sheet.appendRow(rowData);
+
+ return inquiryNumber;
 }
 
 
+/**
+ * メール本文を作成 (既存関数)
+ */
 /**
  * メール本文を作成 (既存関数)
  */
@@ -200,17 +254,30 @@ function createEmailBody(data) {
  body += '【お見積もり内容】\n';
  body += '─────────────────────────────────\n';
  body += `車両: ${quote.vehicle.name}\n`;
- body += `基本料金: ¥${quote.vehicle.basePrice.toLocaleString()}\n\n`;
+ // 基本料金はマトリクス価格になったため、ここでは表示せず合計に含める
+ // body += `基本料金: ¥${quote.vehicle.basePrice.toLocaleString()}\n\n`;
 
- body += `塗装タイプ: ${quote.paint.name}\n`;
- body += `追加料金: +¥${quote.paint.surcharge.toLocaleString()}\n\n`;
+ body += `塗装タイプ: ${quote.paint.name}\n\n`;
+ // 塗装追加料金も廃止されたため削除
+ // body += `追加料金: +¥${quote.paint.surcharge.toLocaleString()}\n\n`;
 
  // オプション
  if (quote.options && quote.options.length > 0) {
   body += '【選択オプション】\n';
   body += '─────────────────────────────────\n';
   quote.options.forEach(opt => {
-   body += `・${opt.name}: ¥${opt.price.toLocaleString()}\n`;
+   // オプション価格の表示 (数値の場合のみtoLocaleString)
+   let priceStr = '';
+   if (typeof opt.price === 'number') {
+    priceStr = `¥${opt.price.toLocaleString()}`;
+   } else if (typeof opt.price === 'object') {
+    // サイズ別価格の場合は、車両サイズに合わせて取得したいが、
+    // ここでは複雑になるため「サイズ別」と表記するか、計算済みの合計に任せる
+    // 簡易的に名前だけ表示する
+    priceStr = '(サイズ別価格)';
+   }
+
+   body += `・${opt.name}: ${priceStr}\n`;
   });
   body += `\n選択オプション数: ${quote.options.length}件\n\n`;
  }
@@ -250,27 +317,57 @@ function doGet() {
 }
 
 /**
- * LINE通知用の本文を整形する関数 (新規追加)
+ * LINE通知用の本文を整形する関数 (更新)
  * @param {object} data - フォームから取得したキーと値のペア
+ * @param {number|string} inquiryNumber - お問い合わせ番号
  * @return {string} 通知メッセージ本文
  */
-function createNotificationBody(data) {
+function createNotificationBody(data, inquiryNumber) {
  const { customer, quote } = data;
 
  let body = '【🔔お問い合わせ通知】\n';
- body += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
- body += `👤 お名前: ${customer.name} 様\n`;
- body += `🚗 車両: ${quote.vehicle.name}\n`;
- body += `🎨 塗装タイプ: ${quote.paint.name}\n`;
- body += `💰 合計金額: ¥${quote.totalPrice.toLocaleString()}\n`;
+ body += '━━━━━━━━━━━━━━━━\n';
+ body += `No.${inquiryNumber}\n`;
+ body += `👤 ${customer.name} 様 (${customer.furigana})\n`;
+ body += `📞 ${customer.phone}\n`;
+ body += '━━━━━━━━━━━━━━━━\n\n';
 
- // 来店希望日時を追記
- if (customer.inquiryType === 'visit' && customer.preferredDate1) {
-  body += `🗓️ 第1希望来店: ${customer.preferredDate1} ${customer.preferredTime1 || ''}\n`;
+ body += `🚗 車両: ${quote.vehicle.name}\n`;
+ body += `🎨 塗装: ${quote.paint.name}\n\n`;
+
+ // オプション一覧
+ if (quote.options && quote.options.length > 0) {
+  body += '🛠️ オプション:\n';
+  quote.options.forEach(opt => {
+   body += `・${opt.name}\n`;
+  });
+  body += '\n';
+ } else {
+  body += '🛠️ オプション: なし\n\n';
  }
 
- body += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
- body += '詳細はメールをご確認ください。';
+ // お問い合わせ内容
+ if (customer.inquiry) {
+  body += '📝 お問い合わせ内容:\n';
+  body += customer.inquiry + '\n\n';
+ }
+
+ body += `💰 見積もり金額: ¥${quote.totalPrice.toLocaleString()}\n`;
+
+ // 来店希望日時
+ if (customer.inquiryType === 'visit') {
+  body += '\n🗓️ 来店希望日:\n';
+  if (customer.preferredDate1) body += `1. ${customer.preferredDate1} ${customer.preferredTime1 || ''}\n`;
+  if (customer.preferredDate2) body += `2. ${customer.preferredDate2} ${customer.preferredTime2 || ''}\n`;
+  if (customer.preferredDate3) body += `3. ${customer.preferredDate3} ${customer.preferredTime3 || ''}\n`;
+  if (!customer.preferredDate1 && !customer.preferredDate2 && !customer.preferredDate3) {
+   body += '指定なし\n';
+  }
+ } else {
+  body += '\n📩 お問い合わせのみ\n';
+ }
+
+ body += '━━━━━━━━━━━━━━━━';
 
  return body;
 }
@@ -315,4 +412,4 @@ function sendLineNotification(message) {
  } catch (e) {
   Logger.log('LINE通知送信エラー: ' + e.message);
  }
-}
+} 
