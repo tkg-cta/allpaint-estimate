@@ -33,9 +33,54 @@
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+2. Set up environment variables in `.env.local`:
+   ```bash
+   VITE_GAS_WEBHOOK_URL=https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec
+   ```
 3. Run the app:
    `npm run dev`
+
+## LINE通知機能
+
+お問い合わせフォーム送信時に、管理者のLINEへリアルタイムで通知を送信する機能が実装されています。
+
+### 機能概要
+
+- フォーム送信時に、メール送信・スプレッドシート記録に加えて、指定のLINEアカウントへプッシュ通知を送信
+- 通知内容: お名前、車両、塗装タイプ、合計金額、希望来店日時(第1希望)
+
+### セットアップ手順
+
+#### 1. LINE Developersでの設定
+
+1. [LINE Developers Console](https://developers.line.biz/console/) にアクセス
+2. 新しいプロバイダーを作成(または既存のプロバイダーを選択)
+3. 「Messaging API」チャネルを作成
+4. チャネル設定から以下を取得:
+   - **チャネルアクセストークン(長期)**: チャネル基本設定 → Messaging API設定 → チャネルアクセストークン(長期)を発行
+   - **ユーザーID**: LINEアプリでボットを友だち追加し、Webhook経由で取得するか、LINE Official Account Managerから確認
+
+#### 2. Google Apps Scriptでの設定
+
+1. [Google Apps Script](https://script.google.com/) にアクセス
+2. `gas-script.js` の内容をコピーして貼り付け
+3. **スクリプトプロパティの設定**:
+   - プロジェクト設定(⚙️アイコン) → 「スクリプトプロパティ」タブ
+   - 以下の2つのプロパティを追加:
+     - `LINE_ACCESS_TOKEN`: LINEチャネルアクセストークン
+     - `LINE_USER_ID`: 通知先のLINEユーザーID
+4. デプロイ → 新しいデプロイ → ウェブアプリとして公開
+5. 生成されたURLを `.env.local` の `VITE_GAS_WEBHOOK_URL` に設定
+
+#### 3. 動作確認
+
+1. フォームからテスト送信を実行
+2. 以下が正常に動作することを確認:
+   - メール送信
+   - スプレッドシートへの記録
+   - LINE通知の受信
+
+**注意:** LINE通知の送信に失敗しても、メール送信とスプレッドシート記録は正常に完了します。
 
 ## 価格・オプションの変更方法
 

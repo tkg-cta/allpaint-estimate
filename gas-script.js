@@ -14,12 +14,18 @@
  * 10. 「デプロイ」をクリック
  * 11. 表示されるウェブアプリのURLをコピー
  * 12. .env.localファイルに設定
+ * 
+ * 【LINE通知の設定】
+ * 1. プロジェクト設定 → スクリプトプロパティ
+ * 2. 以下のプロパティを追加:
+ *    - LINE_ACCESS_TOKEN: LINEチャネルアクセストークン
+ *    - LINE_USER_ID: 通知先のLINEユーザーID
  */
 
 // **********************************************
 // ⚠️ スプレッドシート情報
 // **********************************************
-const SPREADSHEET_ID = '12LQ7kj1_RSucxOoRKe9rybmTqDMgbkwD3QXKnWNdUos'; // あなたのスプレッドシートID
+const SPREADSHEET_ID = '1CjWPooxAf13bE0kD8HobvOXRseISoNBoINnyMdA_DdE'; // あなたのスプレッドシートID
 const SHEET_NAME = '問い合わせ一覧'; // あなたのシート名
 
 // 設定
@@ -63,6 +69,11 @@ function doPost(e) {
     cc: CONFIG.CC_EMAIL
    }
   );
+
+  // 🔔 --- 【新規追加】LINE通知の呼び出し ---
+  const lineMessage = createNotificationBody(data); // ステップ1の関数で本文を生成
+  sendLineNotification(lineMessage); // 通知関数を呼び出す
+  // ----------------------------------------
 
   // 成功レスポンス
   return createResponse({
@@ -228,7 +239,7 @@ function createResponse(data, statusCode = 200) {
 }
 
 /**
- * GETリクエストを処理（動作確認用） (既存関数)
+ * GETリクエストを処理(動作確認用) (既存関数)
  */
 function doGet() {
  return createResponse({
@@ -236,4 +247,72 @@ function doGet() {
   message: 'Google Apps Script is running',
   timestamp: new Date().toISOString()
  });
+}
+
+/**
+ * LINE通知用の本文を整形する関数 (新規追加)
+ * @param {object} data - フォームから取得したキーと値のペア
+ * @return {string} 通知メッセージ本文
+ */
+function createNotificationBody(data) {
+ const { customer, quote } = data;
+
+ let body = '【🔔お問い合わせ通知】\n';
+ body += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+ body += `👤 お名前: ${customer.name} 様\n`;
+ body += `🚗 車両: ${quote.vehicle.name}\n`;
+ body += `🎨 塗装タイプ: ${quote.paint.name}\n`;
+ body += `💰 合計金額: ¥${quote.totalPrice.toLocaleString()}\n`;
+
+ // 来店希望日時を追記
+ if (customer.inquiryType === 'visit' && customer.preferredDate1) {
+  body += `🗓️ 第1希望来店: ${customer.preferredDate1} ${customer.preferredTime1 || ''}\n`;
+ }
+
+ body += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+ body += '詳細はメールをご確認ください。';
+
+ return body;
+}
+
+/**
+ * LINEにプッシュ通知を送信する関数 (新規追加)
+ * スクリプトプロパティに登録された鍵を使用
+ */
+function sendLineNotification(message) {
+ // スクリプトプロパティから鍵を取得
+ const LINE_ACCESS_TOKEN = PropertiesService.getScriptProperties().getProperty('LINE_ACCESS_TOKEN');
+ const LINE_USER_ID = PropertiesService.getScriptProperties().getProperty('LINE_USER_ID');
+
+ // プッシュ通知用APIのエンドポイント
+ const url = 'https://api.line.me/v2/bot/message/push';
+
+ // 送信するペイロード(データ本体)
+ const payload = {
+  to: LINE_USER_ID, // 通知先のユーザーID
+  messages: [
+   {
+    type: 'text',
+    text: message // 送信したいメッセージ本文
+   }
+  ]
+ };
+
+ // API呼び出しオプション
+ const options = {
+  'method': 'post',
+  'headers': {
+   'Content-Type': 'application/json; charset=UTF-8',
+   'Authorization': 'Bearer ' + LINE_ACCESS_TOKEN
+  },
+  'payload': JSON.stringify(payload)
+ };
+
+ try {
+  // APIを実行
+  UrlFetchApp.fetch(url, options);
+  Logger.log('LINE通知を送信しました');
+ } catch (e) {
+  Logger.log('LINE通知送信エラー: ' + e.message);
+ }
 }
