@@ -31,7 +31,7 @@ const SHEET_NAME = '問い合わせ一覧'; // あなたのシート名
 // 設定
 const CONFIG = {
  // 送信元メールアドレス (このGoogleアカウントのGmail)
- FROM_EMAIL: 'takagi.chita@gmail.com',
+ FROM_EMAIL: 'chita.develop@gmail.com',
 
  // 送信先メールアドレス (To)
  TO_EMAIL: 'c-takagi@chita.co.jp',
