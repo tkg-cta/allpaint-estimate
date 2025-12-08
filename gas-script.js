@@ -49,11 +49,15 @@ const CONFIG = {
 /**
  * POSTリクエストを処理
  */
+/**
+ * POSTリクエストを処理
+ */
 function doPost(e) {
  const results = {
   spreadsheet: false,
   email: false,
-  line: false,
+  line_admin: false,
+  line_user: false,
   errors: []
  };
 
@@ -107,16 +111,30 @@ function doPost(e) {
    Logger.log('❌ メール送信: 失敗 - ' + error.message);
   }
 
-  // --- 【3】LINE通知 ---
+  // --- 【3】LINE通知 (管理者へ) ---
   try {
    // お問い合わせ番号を渡して通知本文を作成
    const lineMessage = createNotificationBody(data, inquiryNumber);
    sendLineNotification(lineMessage);
-   results.line = true;
-   Logger.log('✅ LINE通知: 成功');
+   results.line_admin = true;
+   Logger.log('✅ LINE通知(管理者): 成功');
   } catch (error) {
-   results.errors.push('LINE通知エラー: ' + error.message);
-   Logger.log('❌ LINE通知: 失敗 - ' + error.message);
+   results.errors.push('LINE通知(管理者)エラー: ' + error.message);
+   Logger.log('❌ LINE通知(管理者): 失敗 - ' + error.message);
+  }
+
+  // --- 【4】LINE自動応答 (ユーザーへ) ---
+  if (data.lineUserId) {
+   try {
+    sendUserAutoReply(data.lineUserId, data.customer.name);
+    results.line_user = true;
+    Logger.log('✅ LINE自動応答(ユーザー): 成功 (UserID: ' + data.lineUserId + ')');
+   } catch (error) {
+    results.errors.push('LINE自動応答(ユーザー)エラー: ' + error.message);
+    Logger.log('❌ LINE自動応答(ユーザー): 失敗 - ' + error.message);
+   }
+  } else {
+   Logger.log('ℹ️ LINE UserIDがないため、ユーザーへの自動応答はスキップしました');
   }
 
   // 結果をログに出力
@@ -373,7 +391,7 @@ function createNotificationBody(data, inquiryNumber) {
 }
 
 /**
- * LINEにプッシュ通知を送信する関数 (新規追加)
+ * LINEにプッシュ通知を送信する関数 (管理者用)
  * スクリプトプロパティに登録された鍵を使用
  */
 function sendLineNotification(message) {
@@ -411,5 +429,50 @@ function sendLineNotification(message) {
   Logger.log('LINE通知を送信しました');
  } catch (e) {
   Logger.log('LINE通知送信エラー: ' + e.message);
+ }
+}
+
+/**
+ * ユーザーへ自動応答メッセージを送信する関数 (新規追加)
+ * @param {string} userId - 送信先のLINE User ID
+ * @param {string} userName - お客様のお名前
+ */
+function sendUserAutoReply(userId, userName) {
+ const LINE_ACCESS_TOKEN = PropertiesService.getScriptProperties().getProperty('LINE_ACCESS_TOKEN');
+ const url = 'https://api.line.me/v2/bot/message/push';
+
+ const messageText = `${userName} 様\n\n` +
+  `お問い合わせありがとうございます。\n` +
+  `モドーリー奈良運転免許センター東店です。\n\n` +
+  `お見積もり内容を受け付けました。\n` +
+  `担当者が確認次第、改めてご連絡させていただきます。\n\n` +
+  `お急ぎの場合は、店舗までお電話にてお問い合わせください。\n` +
+  `📞 0744-32-5555`;
+
+ const payload = {
+  to: userId,
+  messages: [
+   {
+    type: 'text',
+    text: messageText
+   }
+  ]
+ };
+
+ const options = {
+  'method': 'post',
+  'headers': {
+   'Content-Type': 'application/json; charset=UTF-8',
+   'Authorization': 'Bearer ' + LINE_ACCESS_TOKEN
+  },
+  'payload': JSON.stringify(payload)
+ };
+
+ try {
+  UrlFetchApp.fetch(url, options);
+  Logger.log('ユーザーへの自動応答を送信しました');
+ } catch (e) {
+  Logger.log('ユーザー自動応答送信エラー: ' + e.message);
+  throw e; // エラーを呼び出し元に伝播させる
  }
 } 

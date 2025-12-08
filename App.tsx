@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import liff from '@line/liff';
 import { VEHICLES, PAINTS, OPTIONS } from './constants';
 import { VehicleType, PaintType, SelectedOptions, PricingType } from './types';
 import { StepWizard } from './components/StepWizard';
@@ -28,6 +29,50 @@ const App: React.FC = () => {
  const [selectedPaint, setSelectedPaint] = useState<PaintType | null>(null);
  const [selectedOptions, setSelectedOptions] = useState<SelectedOptions>({});
  const [isSubmitting, setIsSubmitting] = useState(false);
+
+ // ↓ ★追加: LINEから取得したユーザーIDを保存しておくための「箱」
+ const [lineUserId, setLineUserId] = useState<string>('');
+
+ // ↓ ★追加: アプリ起動時に1回だけ実行される処理（LIFFの初期化）
+ // ▼ LIFF初期化処理
+ useEffect(() => {
+  // ローカル開発環境かどうかを判定
+  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+  if (isLocal) {
+   console.log("Local environment detected. Skipping LIFF init.");
+   // ローカル開発用モックID (必要に応じて空文字でもOK)
+   setLineUserId('MOCK_USER_ID_FOR_LOCAL_DEV');
+   return;
+  }
+
+  const LIFF_ID = "2008641975-j10wPK6n";
+
+  liff
+   .init({ liffId: LIFF_ID })
+   .then(() => {
+    console.log("LIFF init succeeded");
+
+    // LINEアプリ内でない、かつ未ログインの場合はログイン画面へ遷移
+    if (!liff.isLoggedIn()) {
+     liff.login();
+     return;
+    }
+
+    // ログイン済みならプロフィール取得
+    liff.getProfile()
+     .then((profile) => {
+      console.log("User ID:", profile.userId);
+      setLineUserId(profile.userId);
+     })
+     .catch((err) => {
+      console.error("Profile Error:", err);
+     });
+   })
+   .catch((error: Error) => {
+    console.error("LIFF init failed", error);
+   });
+ }, []);
 
  // Step 5 Form State
  const [formData, setFormData] = useState<FormData>({
@@ -157,7 +202,9 @@ const App: React.FC = () => {
     paint: selectedPaint,
     options: detailedOptions,
     totalPrice: calculateTotal
-   }
+   },
+   // ↓ ★追加: GAS側で「誰からのアクセスか」を知るためにIDを一緒に送る
+   lineUserId: lineUserId
   };
 
   try {
