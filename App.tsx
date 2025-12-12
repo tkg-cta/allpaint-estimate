@@ -6,7 +6,19 @@ import { StepWizard } from './components/StepWizard';
 import { OptionCard } from './components/OptionCard';
 import { VehicleCard } from './components/VehicleCard';
 import { PaintCard } from './components/PaintCard';
-import { ChevronRight, ChevronLeft, Car, ArrowRight, RotateCcw, Calendar, Mail, Phone, User, Send, Clock, CheckCircle, Edit2, Loader2, MessageCircle } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Car, ArrowRight, RotateCcw, Calendar, Mail, Phone, User, Send, Clock, CheckCircle, Edit2, Loader2, MessageCircle, AlertCircle } from 'lucide-react';
+import {
+ validateEmail,
+ validatePhoneNumber,
+ validateFurigana,
+ validateName,
+ validateInquiry,
+ sanitizeFormData,
+ checkRateLimit,
+ recordSubmission,
+ getRemainingCooldown,
+ ValidationMessages,
+} from './utils/security';
 
 interface FormData {
  name: string;
@@ -32,6 +44,12 @@ const App: React.FC = () => {
 
  // ↓ ★追加: LINEから取得したユーザーIDを保存しておくための「箱」
  const [lineUserId, setLineUserId] = useState<string>('');
+
+ // ★セキュリティ: バリデーションエラー状態
+ const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
+ // ★セキュリティ: レート制限のクールダウン
+ const [cooldownSeconds, setCooldownSeconds] = useState(0);
 
  // ↓ ★追加: アプリ起動時に1回だけ実行される処理（LIFFの初期化）
  // ▼ LIFF初期化処理
@@ -163,17 +181,68 @@ const App: React.FC = () => {
  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
   const { name, value } = e.target;
   setFormData(prev => ({ ...prev, [name]: value }));
+
+  // ★セキュリティ: 入力時にエラーをクリア
+  if (validationErrors[name]) {
+   setValidationErrors(prev => {
+    const newErrors = { ...prev };
+    delete newErrors[name];
+    return newErrors;
+   });
+  }
  };
 
  const handleFormSubmit = (e: React.FormEvent) => {
   e.preventDefault();
-  // Move to Step 5 (Final Confirmation) instead of submitting immediately
+
+  // ★セキュリティ: フォームバリデーション
+  const errors: Record<string, string> = {};
+
+  if (!validateName(formData.name)) {
+   errors.name = ValidationMessages.name;
+  }
+
+  if (!validateFurigana(formData.furigana)) {
+   errors.furigana = ValidationMessages.furigana;
+  }
+
+  if (!validatePhoneNumber(formData.phone)) {
+   errors.phone = ValidationMessages.phone;
+  }
+
+  if (!validateEmail(formData.email)) {
+   errors.email = ValidationMessages.email;
+  }
+
+  if (!validateInquiry(formData.inquiry)) {
+   errors.inquiry = ValidationMessages.inquiry;
+  }
+
+  // エラーがある場合は送信しない
+  if (Object.keys(errors).length > 0) {
+   setValidationErrors(errors);
+   // 最初のエラーフィールドまでスクロール
+   window.scrollTo({ top: 0, behavior: 'smooth' });
+   return;
+  }
+
+  // バリデーション成功 - 確認画面へ
+  setValidationErrors({});
   setCurrentStep(5);
   window.scrollTo({ top: 0, behavior: 'smooth' });
  };
 
  const handleFinalSubmit = async () => {
   if (isSubmitting) return;
+
+  // ★セキュリティ: レート制限チェック
+  if (!checkRateLimit()) {
+   const remaining = getRemainingCooldown();
+   setCooldownSeconds(remaining);
+   alert(`${ValidationMessages.rateLimit}\n残り時間: ${remaining}秒`);
+   return;
+  }
+
   setIsSubmitting(true);
 
   // --- 送信データ (JSON) の作成 ---
@@ -195,8 +264,11 @@ const App: React.FC = () => {
    })
    .filter(Boolean);
 
+  // ★セキュリティ: フォームデータをサニタイズ
+  const sanitizedFormData = sanitizeFormData(formData);
+
   const payload = {
-   customer: formData,
+   customer: sanitizedFormData,
    quote: {
     vehicle: selectedVehicle,
     paint: selectedPaint,
@@ -232,6 +304,10 @@ const App: React.FC = () => {
 
    // no-corsモードではレスポンスを読めないため、成功とみなす
    console.log("送信されたデータ:", payload);
+
+   // ★セキュリティ: 送信成功時にレート制限を記録
+   recordSubmission();
+   setCooldownSeconds(60);
 
    // 完了画面 (Step 6) へ遷移
    setCurrentStep(6);
@@ -441,10 +517,17 @@ const App: React.FC = () => {
          required
          value={formData.name}
          onChange={handleFormChange}
-         className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition-all"
+         className={`w-full pl-10 pr-4 py-3 rounded-xl border ${validationErrors.name ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : 'border-gray-200 focus:border-primary-500 focus:ring-primary-200'
+          } focus:ring-2 outline-none transition-all`}
          placeholder="山田 太郎"
         />
        </div>
+       {validationErrors.name && (
+        <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
+         <AlertCircle size={14} />
+         {validationErrors.name}
+        </p>
+       )}
       </div>
       <div>
        <label className="block text-sm font-bold text-gray-700 mb-2">
@@ -456,9 +539,16 @@ const App: React.FC = () => {
         required
         value={formData.furigana}
         onChange={handleFormChange}
-        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition-all"
+        className={`w-full px-4 py-3 rounded-xl border ${validationErrors.furigana ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : 'border-gray-200 focus:border-primary-500 focus:ring-primary-200'
+         } focus:ring-2 outline-none transition-all`}
         placeholder="やまだ たろう"
        />
+       {validationErrors.furigana && (
+        <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
+         <AlertCircle size={14} />
+         {validationErrors.furigana}
+        </p>
+       )}
       </div>
       <div>
        <label className="block text-sm font-bold text-gray-700 mb-2">
@@ -472,10 +562,17 @@ const App: React.FC = () => {
          required
          value={formData.phone}
          onChange={handleFormChange}
-         className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition-all"
+         className={`w-full pl-10 pr-4 py-3 rounded-xl border ${validationErrors.phone ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : 'border-gray-200 focus:border-primary-500 focus:ring-primary-200'
+          } focus:ring-2 outline-none transition-all`}
          placeholder="090-1234-5678"
         />
        </div>
+       {validationErrors.phone && (
+        <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
+         <AlertCircle size={14} />
+         {validationErrors.phone}
+        </p>
+       )}
       </div>
       <div>
        <label className="block text-sm font-bold text-gray-700 mb-2">
@@ -489,10 +586,17 @@ const App: React.FC = () => {
          required
          value={formData.email}
          onChange={handleFormChange}
-         className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition-all"
+         className={`w-full pl-10 pr-4 py-3 rounded-xl border ${validationErrors.email ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : 'border-gray-200 focus:border-primary-500 focus:ring-primary-200'
+          } focus:ring-2 outline-none transition-all`}
          placeholder="example@email.com"
         />
        </div>
+       {validationErrors.email && (
+        <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
+         <AlertCircle size={14} />
+         {validationErrors.email}
+        </p>
+       )}
       </div>
      </div>
     </section>
@@ -622,9 +726,16 @@ const App: React.FC = () => {
       value={formData.inquiry}
       onChange={handleFormChange}
       rows={4}
-      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition-all"
+      className={`w-full px-4 py-3 rounded-xl border ${validationErrors.inquiry ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : 'border-gray-200 focus:border-primary-500 focus:ring-primary-200'
+       } focus:ring-2 outline-none transition-all`}
       placeholder="ご質問やご要望がございましたらご記入ください。"
      />
+     {validationErrors.inquiry && (
+      <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
+       <AlertCircle size={14} />
+       {validationErrors.inquiry}
+      </p>
+     )}
     </section>
 
     <div className="pt-4 flex justify-center">
@@ -726,13 +837,18 @@ const App: React.FC = () => {
     </button>
     <button
      onClick={handleFinalSubmit}
-     disabled={isSubmitting}
-     className="w-full sm:w-auto px-12 py-4 bg-primary-600 text-white font-bold text-lg rounded-xl shadow-xl shadow-primary-200 hover:bg-primary-700 hover:-translate-y-1 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+     disabled={isSubmitting || cooldownSeconds > 0}
+     className="w-full sm:w-auto px-12 py-4 bg-primary-600 text-white font-bold text-lg rounded-xl shadow-xl shadow-primary-200 hover:bg-primary-700 hover:-translate-y-1 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
     >
      {isSubmitting ? (
       <>
        <Loader2 className="animate-spin" size={20} />
        送信中...
+      </>
+     ) : cooldownSeconds > 0 ? (
+      <>
+       <Clock size={20} />
+       再送信まで {cooldownSeconds}秒
       </>
      ) : (
       <>
