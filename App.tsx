@@ -18,6 +18,7 @@ import {
  recordSubmission,
  getRemainingCooldown,
  ValidationMessages,
+ formatPhoneNumber,
 } from './utils/security';
 
 interface FormData {
@@ -194,7 +195,14 @@ const App: React.FC = () => {
 
  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
   const { name, value } = e.target;
-  setFormData(prev => ({ ...prev, [name]: value }));
+
+  // ★電話番号の自動フォーマット (携帯電話のみ)
+  let formattedValue = value;
+  if (name === 'phone') {
+   formattedValue = formatPhoneNumber(value);
+  }
+
+  setFormData(prev => ({ ...prev, [name]: formattedValue }));
 
   // ★セキュリティ: 入力時にエラーをクリア
   if (validationErrors[name]) {
@@ -574,6 +582,7 @@ const App: React.FC = () => {
         <input
          type="tel"
          name="phone"
+         inputMode="tel"
          required
          value={formData.phone}
          onChange={handleFormChange}
@@ -598,6 +607,7 @@ const App: React.FC = () => {
         <input
          type="email"
          name="email"
+         inputMode="email"
          required
          value={formData.email}
          onChange={handleFormChange}

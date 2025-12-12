@@ -20,12 +20,56 @@ export const validateEmail = (email: string): boolean => {
 
 /**
  * 日本の電話番号形式を検証
- * 許可形式: 090-1234-5678, 09012345678, 0120-123-456など
+ * 携帯電話: 080/090で始まる11桁
+ * 固定電話: 主要市外局番(03, 06, 052など)で始まる10桁
  */
 export const validatePhoneNumber = (phone: string): boolean => {
- // ハイフンあり/なし両対応
- const phoneRegex = /^0\d{1,4}-?\d{1,4}-?\d{3,4}$/;
- return phoneRegex.test(phone) && phone.length <= 20;
+ // ハイフンを除去
+ const cleaned = phone.replace(/-/g, '');
+
+ // 携帯電話: 080または090で始まる11桁
+ const mobileRegex = /^(080|090)\d{8}$/;
+ if (mobileRegex.test(cleaned)) {
+  return true;
+ }
+
+ // 固定電話: 主要市外局番で始まる10桁
+ // 03(東京), 06(大阪), 052(名古屋), 011(札幌), 092(福岡), 075(京都), 045(横浜)など
+ const landlineRegex = /^(0[1-9]\d{0,3})\d{6,7}$/;
+ if (landlineRegex.test(cleaned) && cleaned.length === 10) {
+  // 主要市外局番のチェック
+  const validAreaCodes = ['03', '06', '052', '011', '092', '075', '045', '022', '048', '043', '078', '082', '096', '099'];
+  const areaCode = cleaned.match(/^(0\d{1,3})/)?.[1];
+
+  if (areaCode && validAreaCodes.some(code => cleaned.startsWith(code))) {
+   return true;
+  }
+ }
+
+ return false;
+};
+
+/**
+ * 電話番号を自動フォーマット (携帯電話のみ)
+ * 080/090の場合: XXX-XXXX-XXXX形式に変換
+ */
+export const formatPhoneNumber = (phone: string): string => {
+ // ハイフンを除去
+ const cleaned = phone.replace(/-/g, '');
+
+ // 携帯電話の場合のみフォーマット
+ if (/^(080|090)\d{0,8}$/.test(cleaned)) {
+  if (cleaned.length <= 3) {
+   return cleaned;
+  } else if (cleaned.length <= 7) {
+   return `${cleaned.slice(0, 3)}-${cleaned.slice(3)}`;
+  } else {
+   return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 7)}-${cleaned.slice(7, 11)}`;
+  }
+ }
+
+ // 固定電話や不完全な入力はそのまま返す
+ return phone;
 };
 
 /**
@@ -148,7 +192,7 @@ export const getRemainingCooldown = (): number => {
 
 export const ValidationMessages = {
  email: 'メールアドレスの形式が正しくありません',
- phone: '電話番号の形式が正しくありません(例: 090-1234-5678)',
+ phone: '電話番号の形式が正しくありません(携帯: 080/090、固定: 03/06/052など)',
  furigana: 'ふりがなはひらがなで入力してください',
  name: 'お名前を入力してください(100文字以内)',
  inquiry: 'お問い合わせ内容は2000文字以内で入力してください',
