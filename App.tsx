@@ -103,7 +103,7 @@ const App: React.FC = () => {
    })
    .catch((error: Error) => {
     console.error("LIFF init failed", error);
-    alert('LINEアプリの初期化に失敗しました。LINEアプリ内からアクセスしてください。');
+    alert('LINEアプリの初期化に失敗しました。\n\nエラー詳細:\n' + error.message + '\n\nLIFF ID: 2008641975-j10wPK6n');
    });
  }, []);
 
