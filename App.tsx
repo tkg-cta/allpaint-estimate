@@ -69,7 +69,7 @@ const App: React.FC = () => {
    return;
   }
 
-  const LIFF_ID = "2008641975-j10wPK6n";
+  const LIFF_ID = "2008641975-j1OwPK6n";
 
   liff
    .init({ liffId: LIFF_ID })
