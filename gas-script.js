@@ -615,13 +615,6 @@ function sendUserAutoReply(userId, userName) {
   Logger.log('ユーザー自動応答送信エラー: ' + e.message);
   throw e; // エラーを呼び出し元に伝播させる
  }
-} try {
- UrlFetchApp.fetch(url, options);
- Logger.log('ユーザーへの自動応答を送信しました');
-} catch (e) {
- Logger.log('ユーザー自動応答送信エラー: ' + e.message);
- throw e; // エラーを呼び出し元に伝播させる
-}
 }
 
 // ========================================
