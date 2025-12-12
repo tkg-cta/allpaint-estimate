@@ -45,6 +45,9 @@ const App: React.FC = () => {
  // ↓ ★追加: LINEから取得したユーザーIDを保存しておくための「箱」
  const [lineUserId, setLineUserId] = useState<string>('');
 
+ // ★LINE セキュリティ: IDトークンを保存
+ const [liffIdToken, setLiffIdToken] = useState<string>('');
+
  // ★セキュリティ: バリデーションエラー状態
  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
@@ -59,8 +62,9 @@ const App: React.FC = () => {
 
   if (isLocal) {
    console.log("Local environment detected. Skipping LIFF init.");
-   // ローカル開発用モックID (必要に応じて空文字でもOK)
+   // ローカル開発用モックID
    setLineUserId('MOCK_USER_ID_FOR_LOCAL_DEV');
+   setLiffIdToken('MOCK_ID_TOKEN_FOR_LOCAL_DEV');
    return;
   }
 
@@ -77,6 +81,15 @@ const App: React.FC = () => {
      return;
     }
 
+    // ★LINE セキュリティ: IDトークンを取得
+    const idToken = liff.getIDToken();
+    if (idToken) {
+     setLiffIdToken(idToken);
+     console.log("ID Token retrieved successfully");
+    } else {
+     console.error("Failed to retrieve ID Token");
+    }
+
     // ログイン済みならプロフィール取得
     liff.getProfile()
      .then((profile) => {
@@ -89,6 +102,7 @@ const App: React.FC = () => {
    })
    .catch((error: Error) => {
     console.error("LIFF init failed", error);
+    alert('LINEアプリの初期化に失敗しました。LINEアプリ内からアクセスしてください。');
    });
  }, []);
 
@@ -276,7 +290,8 @@ const App: React.FC = () => {
     totalPrice: calculateTotal
    },
    // ↓ ★追加: GAS側で「誰からのアクセスか」を知るためにIDを一緒に送る
-   lineUserId: lineUserId
+   lineUserId: lineUserId,
+   liffIdToken: liffIdToken // Add liffIdToken here
   };
 
   try {

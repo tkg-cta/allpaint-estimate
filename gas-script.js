@@ -27,6 +27,7 @@
 // **********************************************
 const SPREADSHEET_ID = '1CjWPooxAf13bE0kD8HobvOXRseISoNBoINnyMdA_DdE'; // あなたのスプレッドシートID
 const SHEET_NAME = '問い合わせ一覧'; // あなたのシート名
+const RATE_LIMIT_SHEET_NAME = 'RateLimit'; // レート制限用シート
 
 // 設定
 const CONFIG = {
@@ -65,6 +66,145 @@ function doPost(e) {
   // リクエストボディをパース
   const data = JSON.parse(e.postData.contents);
   Logger.log('受信データ: ' + JSON.stringify(data));
+
+  // ========================================
+  // 🛡️ LINEセキュリティ: LIFF IDトークン検証
+  // ========================================
+
+  // ローカル開発用モックトークンを許可
+  const isLocalDev = data.liffIdToken === 'MOCK_ID_TOKEN_FOR_LOCAL_DEV' &&
+   data.lineUserId === 'MOCK_USER_ID_FOR_LOCAL_DEV';
+
+  if (!isLocalDev) {
+   // 本番環境: IDトークン検証を実施
+   if (!data.liffIdToken || !data.lineUserId) {
+    Logger.log('⚠️ LINEセキュリティ: IDトークンまたはUserIDが不足');
+    return createResponse({
+     success: false,
+     message: 'Unauthorized: Missing authentication token'
+    }, 401);
+   }
+
+   // LIFF IDトークンを検証
+   const verificationResult = verifyLiffIdToken(data.liffIdToken, data.lineUserId);
+   if (!verificationResult.valid) {
+    Logger.log('⚠️ LINEセキュリティ: IDトークン検証失敗 - ' + verificationResult.error);
+    return createResponse({
+     success: false,
+     message: 'Unauthorized: Invalid authentication token'
+    }, 401);
+   }
+
+   Logger.log('✅ LINEセキュリティ: IDトークン検証成功');
+  } else {
+   Logger.log('🛠️ ローカル開発モード: IDトークン検証をスキップ');
+  }
+
+  // ========================================
+  // 🛡️ サーバー側レート制限
+  // ========================================
+
+  if (!isLocalDev) {
+   const rateLimitCheck = checkServerRateLimit(data.lineUserId);
+   if (!rateLimitCheck.allowed) {
+    Logger.log('⚠️ レート制限: 送信間隔が短すぎます - UserID: ' + data.lineUserId);
+    return createResponse({
+     success: false,
+     message: 'Rate limit exceeded. Please wait ' + rateLimitCheck.remainingSeconds + ' seconds.',
+     remainingSeconds: rateLimitCheck.remainingSeconds
+    }, 429);
+   }
+
+   Logger.log('✅ レート制限: チェック通過');
+  }
+
+  // ========================================
+  // 🛡️ 緊急セキュリティ対策: 入力検証
+  // ========================================
+
+  // 1. 必須フィールドの存在チェック
+  if (!data.customer || !data.quote) {
+   Logger.log('⚠️ セキュリティ: 必須フィールド不足 - ' + JSON.stringify(e.parameter));
+   return createResponse({
+    success: false,
+    message: 'Invalid request structure'
+   }, 400);
+  }
+
+  // 2. 顧客情報の検証
+  const { customer, quote } = data;
+
+  if (!customer.name || !customer.email || !customer.phone) {
+   Logger.log('⚠️ セキュリティ: 顧客情報不足');
+   return createResponse({
+    success: false,
+    message: 'Required customer information missing'
+   }, 400);
+  }
+
+  // 3. データ型チェック
+  if (typeof customer.name !== 'string' ||
+   typeof customer.email !== 'string' ||
+   typeof customer.phone !== 'string') {
+   Logger.log('⚠️ セキュリティ: 不正なデータ型');
+   return createResponse({
+    success: false,
+    message: 'Invalid data type'
+   }, 400);
+  }
+
+  // 4. 文字列長チェック(異常に長い入力を拒否)
+  if (customer.name.length > 100 ||
+   customer.email.length > 200 ||
+   customer.phone.length > 20 ||
+   (customer.inquiry && customer.inquiry.length > 2000)) {
+   Logger.log('⚠️ セキュリティ: 入力値が長すぎる');
+   return createResponse({
+    success: false,
+    message: 'Input too long'
+   }, 400);
+  }
+
+  // 5. メールアドレス形式の基本チェック
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(customer.email)) {
+   Logger.log('⚠️ セキュリティ: 無効なメールアドレス - ' + customer.email);
+   return createResponse({
+    success: false,
+    message: 'Invalid email format'
+   }, 400);
+  }
+
+  // 6. 見積もり金額の妥当性チェック
+  if (!quote.totalPrice || typeof quote.totalPrice !== 'number') {
+   Logger.log('⚠️ セキュリティ: 不正な金額データ');
+   return createResponse({
+    success: false,
+    message: 'Invalid price data'
+   }, 400);
+  }
+
+  // 異常に高額または負の値を拒否
+  if (quote.totalPrice < 0 || quote.totalPrice > 10000000) {
+   Logger.log('⚠️ セキュリティ: 異常な金額 - ' + quote.totalPrice);
+   return createResponse({
+    success: false,
+    message: 'Invalid price range'
+   }, 400);
+  }
+
+  // 7. 車両・塗装情報の検証
+  if (!quote.vehicle || !quote.vehicle.name ||
+   !quote.paint || !quote.paint.name) {
+   Logger.log('⚠️ セキュリティ: 見積もり情報不足');
+   return createResponse({
+    success: false,
+    message: 'Invalid quote data'
+   }, 400);
+  }
+
+  Logger.log('✅ セキュリティ検証: 通過');
+  // ========================================
 
   // お問い合わせ番号（初期値）
   let inquiryNumber = '不明';
@@ -475,4 +615,123 @@ function sendUserAutoReply(userId, userName) {
   Logger.log('ユーザー自動応答送信エラー: ' + e.message);
   throw e; // エラーを呼び出し元に伝播させる
  }
-} 
+} try {
+ UrlFetchApp.fetch(url, options);
+ Logger.log('ユーザーへの自動応答を送信しました');
+} catch (e) {
+ Logger.log('ユーザー自動応答送信エラー: ' + e.message);
+ throw e; // エラーを呼び出し元に伝播させる
+}
+}
+
+// ========================================
+// 🛡️ LINE セキュリティ機能
+// ========================================
+
+/**
+ * LIFF IDトークンを検証する関数
+ * @param {string} idToken - LIFF IDトークン
+ * @param {string} expectedUserId - 期待されるUserID
+ * @return {object} { valid: boolean, error: string }
+ */
+function verifyLiffIdToken(idToken, expectedUserId) {
+ try {
+  // LINE公式のIDトークン検証エンドポイント
+  const verifyUrl = 'https://api.line.me/oauth2/v2.1/verify';
+
+  // スクリプトプロパティからLIFF Channel IDを取得
+  const LIFF_CHANNEL_ID = PropertiesService.getScriptProperties().getProperty('LIFF_CHANNEL_ID');
+
+  if (!LIFF_CHANNEL_ID) {
+   Logger.log('⚠️ LIFF_CHANNEL_IDがスクリプトプロパティに設定されていません');
+   return { valid: false, error: 'LIFF_CHANNEL_ID not configured' };
+  }
+
+  // IDトークン検証リクエスト
+  const response = UrlFetchApp.fetch(verifyUrl + '?id_token=' + encodeURIComponent(idToken) + '&client_id=' + LIFF_CHANNEL_ID, {
+   method: 'get',
+   muteHttpExceptions: true
+  });
+
+  const statusCode = response.getResponseCode();
+
+  if (statusCode !== 200) {
+   Logger.log('⚠️ IDトークン検証API エラー: ' + statusCode);
+   return { valid: false, error: 'Token verification failed with status ' + statusCode };
+  }
+
+  const result = JSON.parse(response.getContentText());
+
+  // トークンから取得したUserIDと送信されたUserIDを照合
+  if (result.sub !== expectedUserId) {
+   Logger.log('⚠️ UserID不一致: トークン=' + result.sub + ', 送信=' + expectedUserId);
+   return { valid: false, error: 'UserID mismatch' };
+  }
+
+  // トークンの有効期限チェック
+  const now = Math.floor(Date.now() / 1000);
+  if (result.exp < now) {
+   Logger.log('⚠️ トークン有効期限切れ');
+   return { valid: false, error: 'Token expired' };
+  }
+
+  Logger.log('✅ IDトークン検証成功: UserID=' + result.sub);
+  return { valid: true, error: null };
+
+ } catch (e) {
+  Logger.log('❌ IDトークン検証エラー: ' + e.message);
+  return { valid: false, error: e.message };
+ }
+}
+
+/**
+ * サーバー側レート制限をチェックする関数
+ * @param {string} userId - LINE UserID
+ * @return {object} { allowed: boolean, remainingSeconds: number }
+ */
+function checkServerRateLimit(userId) {
+ try {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(RATE_LIMIT_SHEET_NAME);
+
+  // シートが存在しない場合は作成
+  if (!sheet) {
+   sheet = ss.insertSheet(RATE_LIMIT_SHEET_NAME);
+   sheet.appendRow(['UserID', 'LastSubmissionTime']);
+   Logger.log('✅ RateLimitシートを作成しました');
+  }
+
+  // 既存のレコードを検索
+  const data = sheet.getDataRange().getValues();
+  const now = Date.now();
+  const RATE_LIMIT_DURATION = 60 * 1000; // 60秒
+
+  for (let i = 1; i < data.length; i++) {
+   if (data[i][0] === userId) {
+    const lastSubmissionTime = new Date(data[i][1]).getTime();
+    const timeSinceLastSubmission = now - lastSubmissionTime;
+
+    if (timeSinceLastSubmission < RATE_LIMIT_DURATION) {
+     const remainingSeconds = Math.ceil((RATE_LIMIT_DURATION - timeSinceLastSubmission) / 1000);
+     Logger.log('⚠️ レート制限: UserID ' + userId + ' は ' + remainingSeconds + '秒待つ必要があります');
+     return { allowed: false, remainingSeconds: remainingSeconds };
+    } else {
+     // 既存レコードを更新
+     sheet.getRange(i + 1, 2).setValue(new Date());
+     Logger.log('✅ レート制限記録を更新: UserID=' + userId);
+     return { allowed: true, remainingSeconds: 0 };
+    }
+   }
+  }
+
+  // 新規ユーザー: レコードを追加
+  sheet.appendRow([userId, new Date()]);
+  Logger.log('✅ レート制限記録を新規作成: UserID=' + userId);
+  return { allowed: true, remainingSeconds: 0 };
+
+ } catch (e) {
+  Logger.log('❌ レート制限チェックエラー: ' + e.message);
+  // エラー時は許可（フェイルオープン）
+  return { allowed: true, remainingSeconds: 0 };
+ }
+}
