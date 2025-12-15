@@ -38,9 +38,7 @@ jobs:
       
       - name: Build
         run: npm run build
-        env:
-          # 環境変数をGitHub Secretsから取得
-          # VITE_GAS_WEBHOOK_URL: ${{ secrets.VITE_GAS_WEBHOOK_URL }}
+
       
       - name: Setup Pages
         uses: actions/configure-pages@v4
