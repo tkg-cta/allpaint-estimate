@@ -1,55 +1,31 @@
 /**
- * Google Apps Script - お問い合わせフォーム メール送信
+ * Google Apps Script - お問い合わせフォーム メール送信 (セキュリティ強化版)
  * 
  * 【セットアップ手順】
  * 1. https://script.google.com/ にアクセス
- * 2. 「新しいプロジェクト」をクリック
- * 3. このコードを貼り付け
- * 4. プロジェクト名を「お問い合わせフォーム送信」などに変更
- * 5. 「デプロイ」→「新しいデプロイ」をクリック
- * 6. 種類: 「ウェブアプリ」を選択
- * 7. 説明: 「お問い合わせフォーム」
- * 8. 次のユーザーとして実行: 「自分」
- * 9. アクセスできるユーザー: 「全員」
- * 10. 「デプロイ」をクリック
- * 11. 表示されるウェブアプリのURLをコピー
- * 12. .env.localファイルに設定
- * 
- * 【LINE通知の設定】
- * 1. プロジェクト設定 → スクリプトプロパティ
- * 2. 以下のプロパティを追加:
+ * 2. プロジェクト設定 → スクリプトプロパティ に以下を追加:
  *    - LINE_ACCESS_TOKEN: LINEチャネルアクセストークン
  *    - LINE_USER_ID: 通知先のLINEユーザーID
+ *    - LIFF_CHANNEL_ID: LIFFチャネルID
+ *    - SPREADSHEET_ID: 記録用スプレッドシートID (★新規追加)
  */
 
 // **********************************************
-// ⚠️ スプレッドシート情報
+// ⚠️ 設定
 // **********************************************
-const SPREADSHEET_ID = '1CjWPooxAf13bE0kD8HobvOXRseISoNBoINnyMdA_DdE'; // あなたのスプレッドシートID
 const SHEET_NAME = '問い合わせ一覧'; // あなたのシート名
-const RATE_LIMIT_SHEET_NAME = 'RateLimit'; // レート制限用シート
+// RATE_LIMIT_SHEET_NAME は CacheService 利用のため廃止しました
 
 // 設定
 const CONFIG = {
- // 送信元メールアドレス (このGoogleアカウントのGmail)
  FROM_EMAIL: 'chita.develop@gmail.com',
-
- // 送信先メールアドレス (To)
  TO_EMAIL: 'c-takagi@chita.co.jp',
-
- // CCメールアドレス (複数可、カンマ区切り)
- // CC_EMAIL: 'webmarke@chita.co.jp, kawai@chita.co.jp',
  CC_EMAIL: '',
-
- // メール件名
  SUBJECT: '【お問い合わせ】全塗装シミュレーターからのお問い合わせ',
 };
 // **********************************************
 
 
-/**
- * POSTリクエストを処理
- */
 /**
  * POSTリクエストを処理
  */
@@ -101,7 +77,7 @@ function doPost(e) {
   }
 
   // ========================================
-  // 🛡️ サーバー側レート制限
+  // 🛡️ サーバー側レート制限 (CacheService版)
   // ========================================
 
   if (!isLocalDev) {
@@ -209,7 +185,7 @@ function doPost(e) {
   // お問い合わせ番号（初期値）
   let inquiryNumber = '不明';
 
-  // --- 【1】スプレッドシートにデータを記録 ---
+  // --- 【1】スプレッドシートにデータを記録 (排他制御あり) ---
   try {
    // 戻り値としてお問い合わせ番号を受け取る
    inquiryNumber = recordToSpreadsheet(data);
@@ -299,67 +275,90 @@ function doPost(e) {
 
 /**
  * スプレッドシートにデータを追記する関数
- * @return {number} お問い合わせ番号
+ * ★修正: 排他制御(LockService)とインジェクション対策を追加
+ * @return {string} お問い合わせ番号
  */
 function recordToSpreadsheet(data) {
  const { customer, quote } = data;
+ const lock = LockService.getScriptLock(); // ロックオブジェクト取得
 
- const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
- const sheet = ss.getSheetByName(SHEET_NAME);
+ try {
+  // ★排他制御: ロックを取得 (最大30秒待機)
+  // これにより、同時に複数の書き込みが発生しても順番待ちになり、データ破損を防ぎます
+  lock.waitLock(30000);
 
- if (!sheet) {
-  throw new Error(`シート名 "${SHEET_NAME}" が見つかりません。名前を確認してください。`);
+  // ★ID隠蔽: SPREADSHEET_ID をプロパティから取得
+  const SPREADSHEET_ID = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
+  if (!SPREADSHEET_ID) throw new Error('SPREADSHEET_IDがスクリプトプロパティに設定されていません');
+
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(SHEET_NAME);
+
+  if (!sheet) {
+   throw new Error(`シート名 "${SHEET_NAME}" が見つかりません。名前を確認してください。`);
+  }
+
+  // お問い合わせ番号の採番: YY-MM-nnnn 形式
+  const now = new Date();
+  const year = now.getFullYear().toString().slice(-2);
+  const month = (now.getMonth() + 1).toString().padStart(2, '0');
+  const lastRow = sheet.getLastRow();
+  const inquiryNumber = `${year}-${month}-${lastRow}`;
+
+  // 選択されたオプションをカンマ区切りで結合
+  const optionsList = quote.options
+   ? quote.options.map(opt => opt.name).join(', ')
+   : '';
+
+  // 日時を整形するヘルパー関数
+  const formatDateTime = (date, time) => {
+   if (!date && !time) return '';
+   return `${date || '日付未指定'} ${time || '時間未指定'}`;
+  };
+
+  // ★セキュリティ: スプレッドシートインジェクション対策
+  // 先頭が =, +, -, @ で始まる場合、シングルクォートを付与して文字列化する
+  const escapeInjection = (value) => {
+   if (typeof value !== 'string') return value;
+   if (/^[=+\-@]/.test(value)) {
+    return "'" + value;
+   }
+   return value;
+  };
+
+  // スプレッドシートのヘッダー順に合わせたデータ配列を作成
+  const rowData = [
+   inquiryNumber, // 1. お問い合わせ番号 (A)
+   new Date(), // 2. 記録日時 (B)
+   escapeInjection(customer.name), // 3. お名前 (C)
+   escapeInjection(customer.furigana), // 4. ふりがな (D)
+   escapeInjection(customer.phone), // 5. お電話番号 (E)
+   escapeInjection(customer.email), // 6. メールアドレス (F)
+   quote.totalPrice, // 7. 合計金額 (G)
+   escapeInjection(quote.vehicle.name), // 8. 車両 (H)
+   escapeInjection(quote.paint.name), // 9. 塗装タイプ (I)
+   escapeInjection(optionsList), // 10. 選択オプション一覧 (J)
+   customer.inquiryType === 'visit' ? '店舗への来店見積もり' : 'お問い合わせのみ', // 11. お問い合わせ区分 (K)
+   formatDateTime(customer.preferredDate1, customer.preferredTime1), // 12. 来店日時1 (L)
+   formatDateTime(customer.preferredDate2, customer.preferredTime2), // 13. 来店日時2 (M)
+   formatDateTime(customer.preferredDate3, customer.preferredTime3), // 14. 来店日時3 (N)
+   escapeInjection(customer.inquiry), // 15. お問い合わせ内容 (O)
+  ];
+
+  // シートの最終行にデータを追記
+  sheet.appendRow(rowData);
+
+  return inquiryNumber;
+
+ } catch (e) {
+  throw e;
+ } finally {
+  // ★排他制御: 必ずロックを解除する
+  lock.releaseLock();
  }
-
- // お問い合わせ番号の採番: YY-MM-nnnn 形式
- const now = new Date();
- const year = now.getFullYear().toString().slice(-2);
- const month = (now.getMonth() + 1).toString().padStart(2, '0');
- const lastRow = sheet.getLastRow();
- const inquiryNumber = `${year}-${month}-${lastRow}`;
-
- // 選択されたオプションをカンマ区切りで結合
- const optionsList = quote.options
-  ? quote.options.map(opt => opt.name).join(', ')
-  : '';
-
- // 日時を整形するヘルパー関数
- const formatDateTime = (date, time) => {
-  if (!date && !time) return '';
-  return `${date || '日付未指定'} ${time || '時間未指定'}`;
- };
-
- // スプレッドシートのヘッダー順に合わせたデータ配列を作成
- // (A:お問い合わせ番号, B:記録日時, C:お名前, D:ふりがな, E:お電話番号, F:メールアドレス, G:合計金額, H:車両, I:塗装タイプ, J:選択オプション一覧, K:お問い合わせ区分, L:希望来店日時(1), M:希望来店日時(2), N:希望来店日時(3), O:お問い合わせ内容)
- const rowData = [
-  inquiryNumber, // 1. お問い合わせ番号 (A)
-  new Date(), // 2. 記録日時 (B)
-  customer.name, // 3. お名前 (C)
-  customer.furigana, // 4. ふりがな (D) <-- NEW
-  customer.phone, // 5. お電話番号 (E)
-  customer.email, // 6. メールアドレス (F)
-  quote.totalPrice, // 7. 合計金額 (G)
-  quote.vehicle.name, // 8. 車両 (H)
-  quote.paint.name, // 9. 塗装タイプ (I)
-  optionsList, // 10. 選択オプション一覧 (J)
-  customer.inquiryType === 'visit' ? '店舗への来店見積もり' : 'お問い合わせのみ', // 11. お問い合わせ区分 (K)
-  // 12-14. 来店予定の日時 (L, M, N)
-  formatDateTime(customer.preferredDate1, customer.preferredTime1),
-  formatDateTime(customer.preferredDate2, customer.preferredTime2),
-  formatDateTime(customer.preferredDate3, customer.preferredTime3),
-  customer.inquiry, // 15. お問い合わせ内容 (O)
- ];
-
- // シートの最終行にデータを追記
- sheet.appendRow(rowData);
-
- return inquiryNumber;
 }
 
 
-/**
- * メール本文を作成 (既存関数)
- */
 /**
  * メール本文を作成 (既存関数)
  */
@@ -415,29 +414,19 @@ function createEmailBody(data) {
  body += '【お見積もり内容】\n';
  body += '─────────────────────────────────\n';
  body += `車両: ${quote.vehicle.name}\n`;
- // 基本料金はマトリクス価格になったため、ここでは表示せず合計に含める
- // body += `基本料金: ¥${quote.vehicle.basePrice.toLocaleString()}\n\n`;
-
  body += `塗装タイプ: ${quote.paint.name}\n\n`;
- // 塗装追加料金も廃止されたため削除
- // body += `追加料金: +¥${quote.paint.surcharge.toLocaleString()}\n\n`;
 
  // オプション
  if (quote.options && quote.options.length > 0) {
   body += '【選択オプション】\n';
   body += '─────────────────────────────────\n';
   quote.options.forEach(opt => {
-   // オプション価格の表示 (数値の場合のみtoLocaleString)
    let priceStr = '';
    if (typeof opt.price === 'number') {
     priceStr = `¥${opt.price.toLocaleString()}`;
    } else if (typeof opt.price === 'object') {
-    // サイズ別価格の場合は、車両サイズに合わせて取得したいが、
-    // ここでは複雑になるため「サイズ別」と表記するか、計算済みの合計に任せる
-    // 簡易的に名前だけ表示する
     priceStr = '(サイズ別価格)';
    }
-
    body += `・${opt.name}: ${priceStr}\n`;
   });
   body += `\n選択オプション数: ${quote.options.length}件\n\n`;
@@ -461,8 +450,6 @@ function createEmailBody(data) {
 function createResponse(data, statusCode = 200) {
  const output = ContentService.createTextOutput(JSON.stringify(data));
  output.setMimeType(ContentService.MimeType.JSON);
-
- // CORS対応
  return output;
 }
 
@@ -727,53 +714,31 @@ function verifyLiffIdToken(idToken, expectedUserId) {
 }
 
 /**
- * サーバー側レート制限をチェックする関数
+ * サーバー側レート制限をチェックする関数 (CacheService版)
+ * ★修正: スプレッドシートを使わず、CacheServiceで高速に処理
  * @param {string} userId - LINE UserID
  * @return {object} { allowed: boolean, remainingSeconds: number }
  */
 function checkServerRateLimit(userId) {
  try {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  let sheet = ss.getSheetByName(RATE_LIMIT_SHEET_NAME);
+  const cache = CacheService.getScriptCache();
+  const cacheKey = `rate_limit_${userId}`;
+  const cachedValue = cache.get(cacheKey);
 
-  // シートが存在しない場合は作成
-  if (!sheet) {
-   sheet = ss.insertSheet(RATE_LIMIT_SHEET_NAME);
-   sheet.appendRow(['UserID', 'LastSubmissionTime']);
-   Logger.log('✅ RateLimitシートを作成しました');
+  if (cachedValue) {
+   // キャッシュが存在する = 制限期間内
+   Logger.log('⚠️ レート制限(Cache): UserID ' + userId + ' は制限中です');
+   return { allowed: false, remainingSeconds: 60 };
   }
 
-  // 既存のレコードを検索
-  const data = sheet.getDataRange().getValues();
-  const now = Date.now();
-  const RATE_LIMIT_DURATION = 60 * 1000; // 60秒
-
-  for (let i = 1; i < data.length; i++) {
-   if (data[i][0] === userId) {
-    const lastSubmissionTime = new Date(data[i][1]).getTime();
-    const timeSinceLastSubmission = now - lastSubmissionTime;
-
-    if (timeSinceLastSubmission < RATE_LIMIT_DURATION) {
-     const remainingSeconds = Math.ceil((RATE_LIMIT_DURATION - timeSinceLastSubmission) / 1000);
-     Logger.log('⚠️ レート制限: UserID ' + userId + ' は ' + remainingSeconds + '秒待つ必要があります');
-     return { allowed: false, remainingSeconds: remainingSeconds };
-    } else {
-     // 既存レコードを更新
-     sheet.getRange(i + 1, 2).setValue(new Date());
-     Logger.log('✅ レート制限記録を更新: UserID=' + userId);
-     return { allowed: true, remainingSeconds: 0 };
-    }
-   }
-  }
-
-  // 新規ユーザー: レコードを追加
-  sheet.appendRow([userId, new Date()]);
-  Logger.log('✅ レート制限記録を新規作成: UserID=' + userId);
+  // キャッシュに書き込み (60秒有効)
+  cache.put(cacheKey, '1', 60);
+  Logger.log('✅ レート制限(Cache): 通過 UserID=' + userId);
   return { allowed: true, remainingSeconds: 0 };
 
  } catch (e) {
   Logger.log('❌ レート制限チェックエラー: ' + e.message);
-  // エラー時は許可（フェイルオープン）
+  // エラー時はフェイルオープン（許可）
   return { allowed: true, remainingSeconds: 0 };
  }
 }
