@@ -91,7 +91,7 @@ function doPost(e) {
     Logger.log('⚠️ LINEセキュリティ: IDトークン検証失敗 - ' + verificationResult.error);
     return createResponse({
      success: false,
-     message: 'Unauthorized: Invalid authentication token'
+     message: 'Unauthorized: ' + verificationResult.error
     }, 401);
    }
 
@@ -266,7 +266,7 @@ function doPost(e) {
   // --- 【4】LINE自動応答 (ユーザーへ) ---
   if (data.lineUserId) {
    try {
-    sendUserAutoReply(data.lineUserId, data.customer.name);
+    sendUserAutoReply(data.lineUserId, data, inquiryNumber);
     results.line_user = true;
     Logger.log('✅ LINE自動応答(ユーザー): 成功 (UserID: ' + data.lineUserId + ')');
    } catch (error) {
@@ -311,9 +311,12 @@ function recordToSpreadsheet(data) {
   throw new Error(`シート名 "${SHEET_NAME}" が見つかりません。名前を確認してください。`);
  }
 
- // お問い合わせ番号の採番: 次に書き込まれる行番号 (1行目がヘッダーなので、連番は lastRow となる)
+ // お問い合わせ番号の採番: YY-MM-nnnn 形式
+ const now = new Date();
+ const year = now.getFullYear().toString().slice(-2);
+ const month = (now.getMonth() + 1).toString().padStart(2, '0');
  const lastRow = sheet.getLastRow();
- const inquiryNumber = lastRow;
+ const inquiryNumber = `${year}-${month}-${lastRow}`;
 
  // 選択されたオプションをカンマ区切りで結合
  const optionsList = quote.options
@@ -475,7 +478,7 @@ function doGet() {
 }
 
 /**
- * LINE通知用の本文を整形する関数 (更新)
+ * LINE通知用の本文を整形する関数 (管理者用・シンプル版)
  * @param {object} data - フォームから取得したキーと値のペア
  * @param {number|string} inquiryNumber - お問い合わせ番号
  * @return {string} 通知メッセージ本文
@@ -483,38 +486,40 @@ function doGet() {
 function createNotificationBody(data, inquiryNumber) {
  const { customer, quote } = data;
 
- let body = '【🔔お問い合わせ通知】\n';
- body += '━━━━━━━━━━━━━━━━\n';
+ let body = '【お問い合わせ通知】\n';
+ body += '--------------------------------\n';
  body += `No.${inquiryNumber}\n`;
- body += `👤 ${customer.name} 様 (${customer.furigana})\n`;
- body += `📞 ${customer.phone}\n`;
- body += '━━━━━━━━━━━━━━━━\n\n';
+ body += `お名前: ${customer.name} 様 (${customer.furigana})\n`;
+ body += `電話番号: ${customer.phone}\n`;
+ body += `メールアドレス: ${customer.email}\n`;
+ body += '--------------------------------\n\n';
 
- body += `🚗 車両: ${quote.vehicle.name}\n`;
- body += `🎨 塗装: ${quote.paint.name}\n\n`;
+ body += `車両: ${quote.vehicle.name}\n`;
+ body += `塗装: ${quote.paint.name}\n\n`;
 
  // オプション一覧
  if (quote.options && quote.options.length > 0) {
-  body += '🛠️ オプション:\n';
+  body += 'オプション:\n';
   quote.options.forEach(opt => {
-   body += `・${opt.name}\n`;
+   const quantityStr = opt.quantity > 1 ? ` (x${opt.quantity})` : '';
+   body += `・${opt.name}${quantityStr}: ¥${opt.price.toLocaleString()}\n`;
   });
   body += '\n';
  } else {
-  body += '🛠️ オプション: なし\n\n';
+  body += 'オプション: なし\n\n';
  }
 
  // お問い合わせ内容
  if (customer.inquiry) {
-  body += '📝 お問い合わせ内容:\n';
+  body += 'お問い合わせ内容:\n';
   body += customer.inquiry + '\n\n';
  }
 
- body += `💰 見積もり金額: ¥${quote.totalPrice.toLocaleString()}\n`;
+ body += `見積もり金額: ¥${quote.totalPrice.toLocaleString()}\n`;
 
  // 来店希望日時
  if (customer.inquiryType === 'visit') {
-  body += '\n🗓️ 来店希望日:\n';
+  body += '\n来店希望日:\n';
   if (customer.preferredDate1) body += `1. ${customer.preferredDate1} ${customer.preferredTime1 || ''}\n`;
   if (customer.preferredDate2) body += `2. ${customer.preferredDate2} ${customer.preferredTime2 || ''}\n`;
   if (customer.preferredDate3) body += `3. ${customer.preferredDate3} ${customer.preferredTime3 || ''}\n`;
@@ -522,10 +527,10 @@ function createNotificationBody(data, inquiryNumber) {
    body += '指定なし\n';
   }
  } else {
-  body += '\n📩 お問い合わせのみ\n';
+  body += '\nお問い合わせのみ\n';
  }
 
- body += '━━━━━━━━━━━━━━━━';
+ body += '--------------------------------';
 
  return body;
 }
@@ -573,21 +578,58 @@ function sendLineNotification(message) {
 }
 
 /**
- * ユーザーへ自動応答メッセージを送信する関数 (新規追加)
+ * ユーザーへ自動応答メッセージを送信する関数 (詳細版)
  * @param {string} userId - 送信先のLINE User ID
- * @param {string} userName - お客様のお名前
+ * @param {object} data - フォームデータ全体
+ * @param {number|string} inquiryNumber - お問い合わせ番号
  */
-function sendUserAutoReply(userId, userName) {
+function sendUserAutoReply(userId, data, inquiryNumber) {
+ const { customer, quote } = data;
  const LINE_ACCESS_TOKEN = PropertiesService.getScriptProperties().getProperty('LINE_ACCESS_TOKEN');
  const url = 'https://api.line.me/v2/bot/message/push';
 
- const messageText = `${userName} 様\n\n` +
-  `お問い合わせありがとうございます。\n` +
-  `モドーリー奈良運転免許センター東店です。\n\n` +
-  `お見積もり内容を受け付けました。\n` +
-  `担当者が確認次第、改めてご連絡させていただきます。\n\n` +
-  `お急ぎの場合は、店舗までお電話にてお問い合わせください。\n` +
-  `📞 0744-32-5555`;
+ // 来店希望日の整形
+ let visitDatesStr = '来店希望日なし';
+ if (customer.inquiryType === 'visit') {
+  const dates = [];
+  if (customer.preferredDate1) dates.push(`${customer.preferredDate1} ${customer.preferredTime1 || ''}`);
+  if (customer.preferredDate2) dates.push(`${customer.preferredDate2} ${customer.preferredTime2 || ''}`);
+  if (customer.preferredDate3) dates.push(`${customer.preferredDate3} ${customer.preferredTime3 || ''}`);
+
+  if (dates.length > 0) {
+   visitDatesStr = '\n' + dates.join('\n');
+  }
+ }
+
+ // オプションの整形
+ let optionsStr = '';
+ if (quote.options && quote.options.length > 0) {
+  quote.options.forEach(opt => {
+   const quantityStr = opt.quantity > 1 ? ` (x${opt.quantity})` : '';
+   optionsStr += `・${opt.name}${quantityStr}: ¥${opt.price.toLocaleString()}\n`;
+  });
+ } else {
+  optionsStr = '・なし\n';
+ }
+
+ // メッセージ本文の作成
+ const messageText = `${customer.name} 様\n` +
+  `この度はモドーリー奈良運転免許センター東店へ塗装のご相談ありがとうございます。\n` +
+  `こちらの概算お見積もり結果を元に、施工のご相談を承りました。\n` +
+  `この後は担当者が確認次第改めてLINEを通じてご連絡いたします。もうしばらくお待ちくださいませ。\n\n\n` +
+  `【👤お客様情報】\n` +
+  `お問合せ番号：${inquiryNumber}\n` +
+  `お名前: ${customer.name} 様\n` +
+  `お電話番号: ${customer.phone}\n` +
+  `メールアドレス: ${customer.email}\n\n` +
+  `🚗 車両: ${quote.vehicle.name}\n` +
+  `🎨 塗装の種類: ${quote.paint.name}\n\n` +
+  `🛠️オプションの結果\n` +
+  optionsStr + '\n' +
+  `概算お見積り結果: ¥${quote.totalPrice.toLocaleString()}\n\n` +
+  `🗓️来店希望日：${visitDatesStr}\n\n` +
+  `📝お問い合わせ内容\n` +
+  `${customer.inquiry || 'なし'}`;
 
  const payload = {
   to: userId,
@@ -613,7 +655,7 @@ function sendUserAutoReply(userId, userName) {
   Logger.log('ユーザーへの自動応答を送信しました');
  } catch (e) {
   Logger.log('ユーザー自動応答送信エラー: ' + e.message);
-  throw e; // エラーを呼び出し元に伝播させる
+  throw e;
  }
 }
 
@@ -640,25 +682,32 @@ function verifyLiffIdToken(idToken, expectedUserId) {
    return { valid: false, error: 'LIFF_CHANNEL_ID not configured' };
   }
 
-  // IDトークン検証リクエスト
-  const response = UrlFetchApp.fetch(verifyUrl + '?id_token=' + encodeURIComponent(idToken) + '&client_id=' + LIFF_CHANNEL_ID, {
-   method: 'get',
+  // IDトークン検証リクエスト (POSTメソッドが必須)
+  const payload = {
+   id_token: idToken,
+   client_id: LIFF_CHANNEL_ID
+  };
+
+  const response = UrlFetchApp.fetch(verifyUrl, {
+   method: 'post',
+   payload: payload,
    muteHttpExceptions: true
   });
 
   const statusCode = response.getResponseCode();
+  const result = JSON.parse(response.getContentText());
 
   if (statusCode !== 200) {
-   Logger.log('⚠️ IDトークン検証API エラー: ' + statusCode);
-   return { valid: false, error: 'Token verification failed with status ' + statusCode };
+   // エラー詳細をログに出力
+   const errorDetail = result.error_description || result.error || 'Unknown error';
+   Logger.log('⚠️ IDトークン検証API エラー: ' + statusCode + ' - ' + errorDetail);
+   return { valid: false, error: 'API Error: ' + statusCode + ' (' + errorDetail + ')' };
   }
-
-  const result = JSON.parse(response.getContentText());
 
   // トークンから取得したUserIDと送信されたUserIDを照合
   if (result.sub !== expectedUserId) {
    Logger.log('⚠️ UserID不一致: トークン=' + result.sub + ', 送信=' + expectedUserId);
-   return { valid: false, error: 'UserID mismatch' };
+   return { valid: false, error: 'UserID mismatch (Token: ' + result.sub + ', Request: ' + expectedUserId + ')' };
   }
 
   // トークンの有効期限チェック
@@ -673,7 +722,7 @@ function verifyLiffIdToken(idToken, expectedUserId) {
 
  } catch (e) {
   Logger.log('❌ IDトークン検証エラー: ' + e.message);
-  return { valid: false, error: e.message };
+  return { valid: false, error: 'Exception: ' + e.message };
  }
 }
 
