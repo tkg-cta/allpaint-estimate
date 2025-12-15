@@ -316,17 +316,29 @@ const App: React.FC = () => {
    }
 
    // Google Apps ScriptへPOSTリクエスト
+   // Google Apps ScriptへPOSTリクエスト
+   // CORSプリフライトを防ぐために Content-Type を text/plain に設定
    const response = await fetch(GAS_URL, {
     method: 'POST',
     headers: {
-     'Content-Type': 'application/json',
+     'Content-Type': 'text/plain;charset=utf-8',
     },
     body: JSON.stringify(payload),
-    mode: 'no-cors', // GASはno-corsモードで動作
    });
 
-   // no-corsモードではレスポンスを読めないため、成功とみなす
-   console.log("送信されたデータ:", payload);
+   if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+   }
+
+   const result = await response.json();
+   console.log("GAS Response:", result);
+
+   if (!result.success) {
+    // GAS側でエラーが返された場合
+    throw new Error(result.message || 'Unknown GAS error');
+   }
+
+   console.log("送信成功:", payload);
 
    // ★セキュリティ: 送信成功時にレート制限を記録
    recordSubmission();
