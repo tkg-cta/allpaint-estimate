@@ -47,8 +47,8 @@ graph TD
 **ファイル**: `App.tsx`
 
 *   **環境変数**: `import.meta.env.VITE_GAS_WEBHOOK_URL` を使用してGASのデプロイURLを管理。
-*   **送信処理**: `fetch` API を使用し、`mode: 'no-cors'` でPOSTリクエストを送信。
-    *   *注意点*: `no-cors` モードではレスポンスの中身（成功/失敗の詳細）をJavaScript側で読み取れないため、送信完了＝成功とみなして画面遷移を行う仕様。
+*   **送信処理**: `fetch` API を使用し、標準のPOSTリクエストを送信（`mode: 'cors'` 相当）。
+    *   *改善点*: 以前は `no-cors` を使用していましたが、現在はGAS側で適切なCORSヘッダー（`Access-Control-Allow-Origin`）を返すように修正したため、**レスポンスの内容（成功/失敗）をJavaScript側で正しく受け取れる**ようになりました。これにより、送信エラー時にユーザーへ適切なメッセージを表示可能です。
 
 ## 3. トラブルシューティングと解決策
 

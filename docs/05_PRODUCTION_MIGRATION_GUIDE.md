@@ -75,6 +75,8 @@ const LIFF_ID = "ここに店舗用の新しいLIFF_ID";
 2.  「プロジェクト設定」→「スクリプトプロパティ」で以下を更新します。
     -   `LINE_ACCESS_TOKEN`: Step 2-1で発行した店舗用のトークン
     -   `LINE_USER_ID`: (テスト用にあなたのID、または空欄でも可)
+    -   `LIFF_CHANNEL_ID`: Step 2-2で発行したLIFF IDの「Channel ID」（※LIFF IDのハイフンの前の数字部分ではありません。LINE Developersの「チャネル基本設定」にある10桁程度の数字です）
+    -   `SPREADSHEET_ID`: 顧客管理用スプレッドシートのID
 
 #### 4-2. Webhook URLの設定 (重要)
 1.  GASを「**新しいデプロイ**」でデプロイし、ウェブアプリURLをコピーします。
