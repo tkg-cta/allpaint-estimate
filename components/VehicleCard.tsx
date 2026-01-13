@@ -53,7 +53,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle, isSelected, o
        }
              `}
      >
-      {isSelected ? <Check size={20} strokeWidth={3} /> : <Circle size={20} />}
+      {isSelected ? <Check size={20} strokeWidth={3} /> : <Check size={20} className="text-gray-300" />}
      </button>
     </div>
    </div>

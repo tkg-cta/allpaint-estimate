@@ -101,7 +101,7 @@ const App: React.FC = () => {
       setLineUserId(profile.userId);
      })
      .catch((err) => {
-      console.error("Profile Error:", err);
+      console.error("LIFF getProfile failed", err);
      });
    })
    .catch((error: Error) => {
@@ -109,6 +109,47 @@ const App: React.FC = () => {
     alert('LINEアプリの初期化に失敗しました。\n\nエラー詳細:\n' + error.message + '\n\nLIFF ID: 2008641975-j10wPK6n');
    });
  }, []);
+
+ // ★スプレッドシートCMS: オプションデータの取得
+ const [optionsData, setOptionsData] = useState<OptionItem[]>(OPTIONS);
+ const [isLoadingOptions, setIsLoadingOptions] = useState(true);
+
+ useEffect(() => {
+  const fetchOptions = async () => {
+   try {
+    // 環境変数からGASのURLを取得
+    const GAS_URL = import.meta.env.VITE_GAS_WEBHOOK_URL;
+    if (!GAS_URL) {
+     console.warn("VITE_GAS_WEBHOOK_URL not set, using fallback options.");
+     setIsLoadingOptions(false);
+     return;
+    }
+
+    // action=getOptions パラメータを付与
+    const response = await fetch(`${GAS_URL}?action=getOptions`);
+    if (!response.ok) {
+     throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (data && data.options && Array.isArray(data.options)) {
+     console.log("Options fetched from GAS:", data.options);
+     setOptionsData(data.options);
+    } else {
+     console.warn("Invalid data format from GAS, using fallback.");
+    }
+   } catch (error) {
+    console.error("Failed to fetch options from GAS:", error);
+    // エラー時はフォールバックデータ(OPTIONS)が初期値として使われるので何もしない
+   } finally {
+    setIsLoadingOptions(false);
+   }
+  };
+
+  fetchOptions();
+ }, []);
+
+
 
  // Step 5 Form State
  const [formData, setFormData] = useState<FormData>({
@@ -360,6 +401,18 @@ const App: React.FC = () => {
 
  // --- Render Steps ---
 
+ // ローディング画面
+ if (isLoadingOptions) {
+  return (
+   <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="text-center">
+     <Loader2 className="w-12 h-12 text-primary-600 animate-spin mx-auto mb-4" />
+     <p className="text-gray-600 font-medium">データを読み込んでいます...</p>
+    </div>
+   </div>
+  );
+ }
+
  const renderVehicleStep = () => (
   <div className="animate-fade-in">
    <h2 className="text-2xl font-bold text-primary-900 mb-2">Step 1. お車をお選びください</h2>
@@ -404,7 +457,7 @@ const App: React.FC = () => {
    { id: 'coating', label: 'コーティング・その他' },
   ];
 
-  const currentCategoryOptions = OPTIONS.filter(o => o.category === activeCategory);
+  const currentCategoryOptions = optionsData.filter(o => o.category === activeCategory);
 
   return (
    <div className="animate-fade-in pb-24">
@@ -580,6 +633,21 @@ const App: React.FC = () => {
    </p>
 
    {renderSummaryContent()}
+
+   <div className="flex gap-4 mt-8">
+    <button
+     onClick={() => setCurrentStep(2)}
+     className="flex-1 py-4 px-6 rounded-xl border-2 border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-colors"
+    >
+     戻る
+    </button>
+    <button
+     onClick={() => setCurrentStep(4)}
+     className="flex-1 py-4 px-6 rounded-xl bg-primary-600 text-white font-bold shadow-lg shadow-primary-200 hover:bg-primary-700 hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"
+    >
+     お問い合わせへ進む <ArrowRight size={20} />
+    </button>
+   </div>
   </div>
  );
 
@@ -1027,37 +1095,53 @@ const App: React.FC = () => {
 
    {/* Footer Navigation (only for first 3 steps) */}
    {currentStep < 3 && (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-40 safe-area-bottom">
-     <div className="max-w-3xl mx-auto flex gap-4">
-      <button
-       onClick={handleBack}
-       disabled={currentStep === 0}
-       className={`
-        flex-1 py-3 px-4 rounded-xl font-bold border-2 transition-colors
-        ${currentStep === 0
-         ? 'border-gray-100 text-gray-300 cursor-not-allowed'
-         : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-40 safe-area-bottom shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+     <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
+
+      {/* Left: Total Amount */}
+      <div className="flex flex-col">
+       <span className="text-[10px] font-bold text-gray-500 leading-tight">概算見積</span>
+       <div className="flex items-baseline gap-1">
+        <span className="text-2xl font-bold text-gray-900 leading-none">
+         {calculateTotal.toLocaleString()}
+        </span>
+        <span className="text-sm font-bold text-gray-900">円</span>
+       </div>
+      </div>
+
+      {/* Right: Navigation Buttons */}
+      <div className="flex gap-3 items-center">
+       <button
+        onClick={handleBack}
+        disabled={currentStep === 0}
+        className={`
+         px-6 py-3 rounded-lg font-bold text-sm transition-colors
+         ${currentStep === 0
+          ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
+          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+         }
+        `}
+       >
+        戻る
+       </button>
+       <button
+        onClick={handleNext}
+        disabled={
+         (currentStep === 0 && !selectedVehicle) ||
+         (currentStep === 1 && !selectedPaint)
         }
-       `}
-      >
-       戻る
-      </button>
-      <button
-       onClick={handleNext}
-       disabled={
-        (currentStep === 0 && !selectedVehicle) ||
-        (currentStep === 1 && !selectedPaint)
-       }
-       className={`
-        flex-[2] py-3 px-4 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 transition-all
-        ${((currentStep === 0 && !selectedVehicle) || (currentStep === 1 && !selectedPaint))
-         ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
-         : 'bg-primary-600 text-white shadow-primary-200 hover:bg-primary-700 hover:shadow-xl hover:-translate-y-0.5'
-        }
-       `}
-      >
-       次へ進む <ChevronRight size={20} />
-      </button>
+        className={`
+         px-8 py-3 rounded-lg font-bold text-sm shadow-md flex items-center justify-center gap-1 transition-all
+         ${((currentStep === 0 && !selectedVehicle) || (currentStep === 1 && !selectedPaint))
+          ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
+          : 'bg-primary-600 text-white shadow-primary-200 hover:bg-primary-700 hover:shadow-xl hover:-translate-y-0.5'
+         }
+        `}
+       >
+        次へ <ChevronRight size={18} />
+       </button>
+      </div>
+
      </div>
     </div>
    )}
@@ -1066,3 +1150,5 @@ const App: React.FC = () => {
 };
 
 export default App;
+
+

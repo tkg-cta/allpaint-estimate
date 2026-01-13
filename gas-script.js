@@ -456,12 +456,96 @@ function createResponse(data, statusCode = 200) {
 /**
  * GETリクエストを処理(動作確認用) (既存関数)
  */
-function doGet() {
+/**
+ * GETリクエストを処理
+ * action=getOptions パラメータがある場合はオプション一覧を返す
+ */
+function doGet(e) {
+ const action = e.parameter.action;
+
+ if (action === 'getOptions') {
+  return getOptionsFromSheet();
+ }
+
  return createResponse({
   status: 'ok',
   message: 'Google Apps Script is running',
   timestamp: new Date().toISOString()
  });
+}
+
+/**
+ * スプレッドシートからオプション情報を取得する
+ */
+function getOptionsFromSheet() {
+ const SPREADSHEET_ID = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
+ if (!SPREADSHEET_ID) {
+  return createResponse({ error: 'SPREADSHEET_ID not configured' }, 500);
+ }
+
+ const cache = CacheService.getScriptCache();
+ const cacheKey = 'options_data_v1';
+ const cached = cache.get(cacheKey);
+
+ if (cached) {
+  return ContentService.createTextOutput(cached).setMimeType(ContentService.MimeType.JSON);
+ }
+
+ try {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName('OptionsMaster');
+
+  if (!sheet) {
+   return createResponse({ error: 'OptionsMaster sheet not found' }, 404);
+  }
+
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0]; // 1行目はヘッダー
+  const rows = data.slice(1); // 2行目以降がデータ
+
+  // ヘッダーのマッピング (日本語 -> 英語キー)
+  const keyMap = {
+   'ID': 'id',
+   'オプション名': 'name',
+   '短い説明': 'description',
+   '詳細説明': 'detailDescription',
+   'カテゴリ': 'category',
+   '料金タイプ': 'pricingType',
+   '価格': 'price',
+   '単位': 'unitLabel',
+   '画像URL': 'image'
+  };
+
+  const options = rows.map(row => {
+   const obj = {};
+   headers.forEach((header, index) => {
+    const key = keyMap[header] || header;
+    let value = row[index];
+
+    // 価格の特殊処理 (JSON文字列の場合)
+    if (key === 'price' && typeof value === 'string' && value.startsWith('{')) {
+     try {
+      value = JSON.parse(value);
+     } catch (e) {
+      // パース失敗時はそのまま
+     }
+    }
+
+    obj[key] = value;
+   });
+   return obj;
+  }).filter(item => item.id); // IDがない行は除外
+
+  const jsonString = JSON.stringify({ options: options });
+
+  // キャッシュに保存 (10分間)
+  cache.put(cacheKey, jsonString, 600);
+
+  return ContentService.createTextOutput(jsonString).setMimeType(ContentService.MimeType.JSON);
+
+ } catch (e) {
+  return createResponse({ error: e.message }, 500);
+ }
 }
 
 /**
