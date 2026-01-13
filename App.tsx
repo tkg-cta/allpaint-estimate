@@ -1,12 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import liff from '@line/liff';
 import { VEHICLES, PAINTS, OPTIONS } from './constants';
-import { VehicleType, PaintType, SelectedOptions, PricingType } from './types';
+import { VehicleType, PaintType, SelectedOptions, PricingType, OptionItem } from './types';
 import { StepWizard } from './components/StepWizard';
 import { OptionCard } from './components/OptionCard';
 import { VehicleCard } from './components/VehicleCard';
 import { PaintCard } from './components/PaintCard';
-import { ChevronRight, ChevronLeft, Car, ArrowRight, RotateCcw, Calendar, Mail, Phone, User, Send, Clock, CheckCircle, Edit2, Loader2, MessageCircle, AlertCircle } from 'lucide-react';
+import { Modal } from './components/Modal';
+import { ChevronRight, ChevronLeft, Car, ArrowRight, RotateCcw, Calendar, Mail, Phone, User, Send, Clock, CheckCircle, Edit2, Loader2, MessageCircle, AlertCircle, Info } from 'lucide-react';
 import {
  validateEmail,
  validatePhoneNumber,
@@ -42,6 +43,8 @@ const App: React.FC = () => {
  const [selectedPaint, setSelectedPaint] = useState<PaintType | null>(null);
  const [selectedOptions, setSelectedOptions] = useState<SelectedOptions>({});
  const [isSubmitting, setIsSubmitting] = useState(false);
+ const [selectedOptionForDetail, setSelectedOptionForDetail] = useState<OptionItem | null>(null);
+ const [activeCategory, setActiveCategory] = useState('prep');
 
  // ↓ ★追加: LINEから取得したユーザーIDを保存しておくための「箱」
  const [lineUserId, setLineUserId] = useState<string>('');
@@ -316,7 +319,6 @@ const App: React.FC = () => {
    }
 
    // Google Apps ScriptへPOSTリクエスト
-   // Google Apps ScriptへPOSTリクエスト
    // CORSプリフライトを防ぐために Content-Type を text/plain に設定
    const response = await fetch(GAS_URL, {
     method: 'POST',
@@ -362,7 +364,7 @@ const App: React.FC = () => {
   <div className="animate-fade-in">
    <h2 className="text-2xl font-bold text-primary-900 mb-2">Step 1. お車をお選びください</h2>
    <p className="text-gray-500 mb-6">塗装を行う車両のタイプを選択してください。</p>
-   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+   <div className="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100">
     {VEHICLES.map((vehicle) => (
      <VehicleCard
       key={vehicle.id}
@@ -379,7 +381,7 @@ const App: React.FC = () => {
   <div className="animate-fade-in">
    <h2 className="text-2xl font-bold text-primary-900 mb-2">Step 2. 塗装タイプをお選びください</h2>
    <p className="text-gray-500 mb-6">ご希望の仕上がりイメージを選択してください。</p>
-   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+   <div className="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100">
     {PAINTS.map((paint) => (
      <PaintCard
       key={paint.id}
@@ -394,49 +396,113 @@ const App: React.FC = () => {
   </div>
  );
 
- const renderOptionsStep = () => (
-  <div className="animate-fade-in pb-24">
-   <h2 className="text-2xl font-bold text-primary-900 mb-2">Step 3. オプション選択</h2>
-   <p className="text-gray-500 mb-8">お車の状態やご希望に合わせてオプションをお選びください。</p>
+ const renderOptionsStep = () => {
+  const categories = [
+   { id: 'prep', label: '下地処理・補修' },
+   { id: 'parts', label: '部品脱着' },
+   { id: 'special', label: '塗装・仕上げオプション' },
+   { id: 'coating', label: 'コーティング・その他' },
+  ];
 
-   {['prep', 'parts', 'special', 'coating'].map((category) => {
-    const categoryOptions = OPTIONS.filter(o => o.category === category);
-    if (categoryOptions.length === 0) return null;
+  const currentCategoryOptions = OPTIONS.filter(o => o.category === activeCategory);
 
-    const titles = {
-     prep: '下地処理・補修',
-     parts: '部品脱着',
-     special: '塗装・仕上げオプション',
-     coating: 'コーティング・その他',
-    };
+  return (
+   <div className="animate-fade-in pb-24">
+    <h2 className="text-2xl font-bold text-primary-900 mb-2">Step 3. オプション選択</h2>
+    <p className="text-gray-500 mb-4">お車の状態やご希望に合わせてオプションをお選びください。</p>
 
-    return (
-     <div key={category} className="mb-10">
-      <h3 className="text-lg font-bold text-gray-700 mb-4 flex items-center">
-       <span className="w-1 h-6 bg-accent rounded mr-3"></span>
-       {titles[category as keyof typeof titles]}
-      </h3>
-      {category === 'prep' && (
-       <p className="text-sm text-gray-500 mb-4 ml-4 -mt-2">
-        1パネル20cm×20cmとなります。施工面積に合わせて数量を増やしてください
+    {/* Category Tabs */}
+    <div className="flex overflow-x-auto pb-2 mb-4 -mx-4 px-4 scrollbar-hide">
+     <div className="flex gap-2">
+      {categories.map((cat) => (
+       <button
+        key={cat.id}
+        onClick={() => setActiveCategory(cat.id)}
+        className={`
+         whitespace-nowrap px-4 py-2 rounded-full text-sm font-bold transition-all
+         ${activeCategory === cat.id
+          ? 'bg-primary-600 text-white shadow-md'
+          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+         }
+        `}
+       >
+        {cat.label}
+       </button>
+      ))}
+     </div>
+    </div>
+
+    {/* Options List */}
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100">
+     {activeCategory === 'prep' && (
+      <div className="p-3 bg-blue-50 text-blue-700 text-xs rounded-t-xl flex items-start gap-2">
+       <Info size={14} className="mt-0.5 flex-shrink-0" />
+       <span>1パネル20cm×20cmとなります。施工面積に合わせて数量を増やしてください</span>
+      </div>
+     )}
+
+     {currentCategoryOptions.map(option => (
+      <OptionCard
+       key={option.id}
+       option={option}
+       vehicleSize={selectedVehicle?.category || 'S'}
+       value={selectedOptions[option.id] || 0}
+       onChange={(val) => handleOptionChange(option.id, val)}
+       onShowDetails={(opt) => setSelectedOptionForDetail(opt)}
+      />
+     ))}
+
+     {currentCategoryOptions.length === 0 && (
+      <div className="p-8 text-center text-gray-400">
+       このカテゴリのオプションはありません
+      </div>
+     )}
+    </div>
+
+    {/* Option Details Modal */}
+    <Modal
+     isOpen={!!selectedOptionForDetail}
+     onClose={() => setSelectedOptionForDetail(null)}
+     title={selectedOptionForDetail?.name || ''}
+    >
+     <div className="space-y-6">
+      <div className="rounded-xl overflow-hidden shadow-md">
+       <img
+        src={selectedOptionForDetail?.image}
+        alt={selectedOptionForDetail?.name}
+        className="w-full h-48 sm:h-64 object-cover"
+       />
+      </div>
+
+      <div>
+       <h4 className="font-bold text-lg text-gray-900 mb-2">オプション詳細</h4>
+       <p className="text-gray-600 leading-relaxed whitespace-pre-wrap">
+        {selectedOptionForDetail?.detailDescription || selectedOptionForDetail?.description}
        </p>
-      )}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-       {categoryOptions.map(option => (
-        <OptionCard
-         key={option.id}
-         option={option}
-         vehicleSize={selectedVehicle!.category}
-         value={selectedOptions[option.id] || 0}
-         onChange={(val) => handleOptionChange(option.id, val)}
-        />
-       ))}
+      </div>
+
+      <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+       <h4 className="font-bold text-sm text-gray-500 uppercase tracking-wider mb-2">価格について</h4>
+       <p className="text-primary-700 font-bold text-xl">
+        {selectedOptionForDetail && selectedVehicle && (
+         <>
+          ¥{(typeof selectedOptionForDetail.price === 'number'
+           ? selectedOptionForDetail.price
+           : selectedOptionForDetail.price[selectedVehicle.category]).toLocaleString()}
+          {selectedOptionForDetail.pricingType === PricingType.PER_UNIT && (
+           <span className="text-sm text-gray-500 font-normal ml-1">
+            / {selectedOptionForDetail.unitLabel || '個'}
+           </span>
+          )}
+         </>
+        )}
+       </p>
       </div>
      </div>
-    );
-   })}
-  </div>
- );
+    </Modal>
+   </div>
+  );
+ };
 
  const renderSummaryContent = (compact = false) => (
   <div className={`bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden ${compact ? 'mb-0' : 'mb-8'}`}>
@@ -479,7 +545,7 @@ const App: React.FC = () => {
 
       const price = typeof option.price === 'number'
        ? option.price
-       : option.price[selectedVehicle!.category];
+       : (selectedVehicle ? option.price[selectedVehicle.category] : 0);
 
       return (
        <li key={id} className="flex justify-between text-sm md:text-base border-b border-gray-200 pb-2 last:border-0 last:pb-0">
@@ -753,10 +819,11 @@ const App: React.FC = () => {
      </div>
     </section>
 
+    {/* Inquiry Text */}
     <section>
      <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
       <MessageCircle className="text-primary-600" size={20} />
-      お問い合わせ内容・ご質問
+      お問い合わせ内容・ご要望
      </h3>
      <textarea
       name="inquiry"
@@ -765,7 +832,7 @@ const App: React.FC = () => {
       rows={4}
       className={`w-full px-4 py-3 rounded-xl border ${validationErrors.inquiry ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : 'border-gray-200 focus:border-primary-500 focus:ring-primary-200'
        } focus:ring-2 outline-none transition-all`}
-      placeholder="ご質問やご要望がございましたらご記入ください。"
+      placeholder="その他、ご質問やご要望がございましたらご記入ください。"
      />
      {validationErrors.inquiry && (
       <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
@@ -775,122 +842,128 @@ const App: React.FC = () => {
      )}
     </section>
 
-    <div className="pt-4 flex justify-center">
+    <div className="flex gap-4 pt-4">
+     <button
+      type="button"
+      onClick={handleBack}
+      className="flex-1 py-4 px-6 rounded-xl border-2 border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-colors"
+     >
+      戻る
+     </button>
      <button
       type="submit"
-      className="w-full md:w-auto px-12 py-4 bg-primary-600 text-white font-bold text-lg rounded-xl shadow-xl shadow-primary-200 hover:bg-primary-700 hover:-translate-y-1 transition-all flex items-center justify-center gap-2"
+      className="flex-1 py-4 px-6 rounded-xl bg-primary-600 text-white font-bold shadow-lg shadow-primary-200 hover:bg-primary-700 hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"
      >
-      確認画面へ進む
-      <ChevronRight size={20} />
+      確認画面へ進む <ArrowRight size={20} />
      </button>
     </div>
    </form>
   </div>
  );
 
- const renderFinalConfirmation = () => (
-  <div className="animate-fade-in pb-20">
-   <h2 className="text-2xl font-bold text-primary-900 mb-2">最終確認</h2>
-   <p className="text-gray-500 mb-6">入力内容をご確認ください。間違いがなければ送信ボタンを押してください。</p>
-
-   <div className="grid grid-cols-1 gap-8">
-    {/* Quote Summary */}
-    <section>
-     <div className="flex items-center gap-2 mb-4">
-      <Car className="text-primary-600" />
-      <h3 className="text-lg font-bold text-gray-800">お見積もり内容</h3>
-     </div>
-     {renderSummaryContent(true)}
-    </section>
-
-    {/* Customer Info Summary */}
-    <section>
-     <div className="flex items-center gap-2 mb-4">
-      <User className="text-primary-600" />
-      <h3 className="text-lg font-bold text-gray-800">お客様情報</h3>
-     </div>
-     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-      <div className="divide-y divide-gray-100">
-       <div className="py-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <span className="text-gray-500 font-medium text-sm">お名前</span>
-        <span className="sm:col-span-2 font-bold text-gray-800">{formData.name} 様</span>
-       </div>
-       <div className="py-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <span className="text-gray-500 font-medium text-sm">ふりがな</span>
-        <span className="sm:col-span-2 text-gray-800">{formData.furigana}</span>
-       </div>
-       <div className="py-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <span className="text-gray-500 font-medium text-sm">電話番号</span>
-        <span className="sm:col-span-2 text-gray-800 font-mono">{formData.phone}</span>
-       </div>
-       <div className="py-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <span className="text-gray-500 font-medium text-sm">メールアドレス</span>
-        <span className="sm:col-span-2 text-gray-800 font-mono">{formData.email}</span>
-       </div>
-       <div className="py-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <span className="text-gray-500 font-medium text-sm">希望来店日時</span>
-        <div className="sm:col-span-2 space-y-1">
-         {[1, 2, 3].map(n => {
-          // @ts-ignore
-          const d = formData[`preferredDate${n}`];
-          // @ts-ignore
-          const t = formData[`preferredTime${n}`];
-          if (!d && !t) return null;
-          return (
-           <div key={n} className="flex gap-2 text-sm text-gray-800">
-            <span className="font-bold text-primary-600 w-16">第{n}希望:</span>
-            <span>{d || '---'} {t ? `${t}` : ''}</span>
-           </div>
-          )
-         })}
-         {!formData.preferredDate1 && !formData.preferredDate2 && !formData.preferredDate3 && (
-          <span className="text-gray-400">指定なし</span>
-         )}
-        </div>
-       </div>
-       <div className="py-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <span className="text-gray-500 font-medium text-sm">お問い合わせ内容</span>
-        <span className="sm:col-span-2 text-gray-800 whitespace-pre-wrap leading-relaxed">
-         {formData.inquiry || <span className="text-gray-400">なし</span>}
-        </span>
-       </div>
-      </div>
-     </div>
-    </section>
+ const renderConfirmationStep = () => (
+  <div className="animate-fade-in">
+   <div className="text-center mb-8">
+    <div className="w-16 h-16 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center mx-auto mb-4">
+     <Send size={32} />
+    </div>
+    <h2 className="text-2xl font-bold text-gray-900">送信内容の確認</h2>
+    <p className="text-gray-500 mt-2">以下の内容で送信してもよろしいですか？</p>
    </div>
 
-   {/* Action Buttons */}
-   <div className="mt-12 flex flex-col-reverse sm:flex-row justify-center items-center gap-4">
+   <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-8">
+    <div className="p-6 border-b border-gray-100">
+     <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
+      <User size={20} className="text-primary-600" /> お客様情報
+     </h3>
+     <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div>
+       <dt className="text-sm text-gray-500">お名前</dt>
+       <dd className="font-medium text-gray-900">{formData.name}</dd>
+      </div>
+      <div>
+       <dt className="text-sm text-gray-500">ふりがな</dt>
+       <dd className="font-medium text-gray-900">{formData.furigana}</dd>
+      </div>
+      <div>
+       <dt className="text-sm text-gray-500">電話番号</dt>
+       <dd className="font-medium text-gray-900">{formData.phone}</dd>
+      </div>
+      <div>
+       <dt className="text-sm text-gray-500">メールアドレス</dt>
+       <dd className="font-medium text-gray-900">{formData.email}</dd>
+      </div>
+     </dl>
+    </div>
+
+    <div className="p-6 border-b border-gray-100">
+     <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
+      <CheckCircle size={20} className="text-primary-600" /> お問い合わせ区分
+     </h3>
+     <p className="font-medium text-gray-900">
+      {formData.inquiryType === 'visit' ? '店舗へ来店して見積もり' : 'お問い合わせのみ'}
+     </p>
+    </div>
+
+    <div className="p-6 border-b border-gray-100">
+     <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
+      <Calendar size={20} className="text-primary-600" /> 来店希望日時
+     </h3>
+     <div className="space-y-2">
+      {[1, 2, 3].map(num => {
+       // @ts-ignore
+       const date = formData[`preferredDate${num}`];
+       // @ts-ignore
+       const time = formData[`preferredTime${num}`];
+       if (!date && !time) return null;
+       return (
+        <div key={num} className="flex gap-4">
+         <span className="text-sm text-gray-500 w-16">第{num}希望:</span>
+         <span className="font-medium text-gray-900">
+          {date || '---'} {time || '---'}
+         </span>
+        </div>
+       );
+      })}
+      {!formData.preferredDate1 && !formData.preferredTime1 && (
+       <p className="text-gray-500 italic">指定なし</p>
+      )}
+     </div>
+    </div>
+
+    <div className="p-6">
+     <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
+      <MessageCircle size={20} className="text-primary-600" /> お問い合わせ内容
+     </h3>
+     <p className="text-gray-900 whitespace-pre-wrap leading-relaxed">
+      {formData.inquiry || <span className="text-gray-400 italic">なし</span>}
+     </p>
+    </div>
+   </div>
+
+   <div className="flex gap-4">
     <button
      onClick={() => {
-      setCurrentStep(4);
+      setCurrentStep(5); // Back to form
       window.scrollTo({ top: 0, behavior: 'smooth' });
      }}
+     className="flex-1 py-4 px-6 rounded-xl border-2 border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-colors"
      disabled={isSubmitting}
-     className="w-full sm:w-auto px-8 py-4 rounded-xl border-2 border-gray-300 text-gray-600 font-bold hover:bg-gray-100 flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
     >
-     <Edit2 size={18} />
-     内容を修正する
+     修正する
     </button>
     <button
      onClick={handleFinalSubmit}
-     disabled={isSubmitting || cooldownSeconds > 0}
-     className="w-full sm:w-auto px-12 py-4 bg-primary-600 text-white font-bold text-lg rounded-xl shadow-xl shadow-primary-200 hover:bg-primary-700 hover:-translate-y-1 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+     disabled={isSubmitting}
+     className="flex-1 py-4 px-6 rounded-xl bg-primary-600 text-white font-bold shadow-lg shadow-primary-200 hover:bg-primary-700 hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
     >
      {isSubmitting ? (
       <>
-       <Loader2 className="animate-spin" size={20} />
-       送信中...
-      </>
-     ) : cooldownSeconds > 0 ? (
-      <>
-       <Clock size={20} />
-       再送信まで {cooldownSeconds}秒
+       <Loader2 className="animate-spin" size={20} /> 送信中...
       </>
      ) : (
       <>
-       <Send size={20} />
-       この内容で送信
+       送信する <Send size={20} />
       </>
      )}
     </button>
@@ -898,153 +971,98 @@ const App: React.FC = () => {
   </div>
  );
 
- const renderCompletionStep = () => (
-  <div className="animate-fade-in text-center py-10">
-   <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-    <CheckCircle className="w-10 h-10 text-green-600" />
+ const renderCompleteStep = () => (
+  <div className="animate-scale-in text-center py-12">
+   <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+    <CheckCircle size={48} />
    </div>
-   <h2 className="text-3xl font-bold text-gray-800 mb-4">お問い合わせ完了</h2>
-   <p className="text-gray-600 mb-12 leading-relaxed">
+   <h2 className="text-3xl font-bold text-gray-900 mb-4">送信完了</h2>
+   <p className="text-gray-600 mb-8 leading-relaxed">
     お問い合わせありがとうございます。<br />
-    担当者より確認次第、ご連絡させていただきます。
+    内容を確認の上、担当者よりご連絡させていただきます。<br />
+    自動返信メールをお送りしましたのでご確認ください。
    </p>
-
-   <div className="bg-white border-2 border-[#06C755] rounded-3xl p-8 max-w-md mx-auto shadow-xl relative overflow-hidden">
-    {/* LINE Banner/Decor */}
-    <div className="absolute top-0 left-0 w-full h-2 bg-[#06C755]" />
-
-    <h3 className="text-xl font-bold text-[#06C755] mb-4 flex items-center justify-center gap-2">
-     <MessageCircle size={28} /> LINEでのやりとりがスムーズです
-    </h3>
-    <p className="text-sm text-gray-600 mb-6 leading-relaxed text-left">
-     もしLINEをお持ちのお客様は、こちらのQRコードから<br />
-     <span className="font-bold">「モドーリー奈良運転免許センター東店」</span>と<br />
-     お友達になっていただき、<br />
-     <span className="text-[#06C755] font-bold">「お名前」</span>と<span className="text-[#06C755] font-bold">「お電話番号」</span>をメッセージでお送りください。
-    </p>
-
-    <div className="bg-gray-50 p-4 rounded-xl inline-block mb-6">
-     {/* Placeholder QR Code - Replace with your actual QR code image URL */}
-     <img
-      src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://line.me/ti/p/@placeholder"
-      alt="LINE QR Code"
-      className="w-40 h-40 mix-blend-multiply"
-     />
-    </div>
-
-    <div className="text-xs text-gray-400">
-     ※QRコードをタップ、またはスキャンしてください
-    </div>
-
-    <a href="#" className="mt-6 block w-full py-3 bg-[#06C755] text-white font-bold rounded-full hover:bg-[#05b64d] transition-colors shadow-lg shadow-green-100 flex items-center justify-center gap-2">
-     <MessageCircle size={20} />
-     LINEアプリを開く
-    </a>
-   </div>
-
-   <div className="mt-12">
-    <a
-     href="https://modolly-sakurai01.com/allpaint/"
-     className="text-gray-400 hover:text-gray-600 text-sm font-medium underline underline-offset-4"
-    >
-     トップページへ戻る
-    </a>
-   </div>
+   <button
+    onClick={() => window.location.reload()}
+    className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-primary-600 text-white font-bold hover:bg-primary-700 transition-colors shadow-lg shadow-primary-200"
+   >
+    <RotateCcw size={20} /> トップへ戻る
+   </button>
   </div>
  );
 
  return (
-  <div className="min-h-screen flex flex-col font-sans text-gray-800">
+  <div className="min-h-screen bg-gray-50 font-sans text-gray-900 pb-20">
    {/* Header */}
-   <header className="bg-white shadow-sm sticky top-0 z-30">
-    <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
-     <a href="https://modolly-sakurai01.com/allpaint/" className="flex items-center gap-2 text-primary-700 hover:opacity-80 transition-opacity">
-      <Car className="w-6 h-6" />
-      <h1 className="font-bold text-lg tracking-tight">Modory Paint Simulator</h1>
-     </a>
-     <div className="text-xs text-gray-500 hidden sm:block">
-      カンタン全塗装シミュレーション
+   <header className="bg-white shadow-sm sticky top-0 z-40">
+    <div className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between">
+     <div className="flex items-center gap-2">
+      <Car className="text-primary-600" size={24} />
+      <h1 className="font-bold text-xl tracking-tight">Allpaint Simulator</h1>
      </div>
+     <div className="text-sm font-bold text-primary-600 bg-primary-50 px-3 py-1 rounded-full">
+      Step {currentStep + 1}/6
+     </div>
+    </div>
+    {/* Progress Bar */}
+    <div className="h-1 bg-gray-100 w-full">
+     <div
+      className="h-full bg-primary-500 transition-all duration-500 ease-out"
+      style={{ width: `${((currentStep + 1) / 6) * 100}%` }}
+     />
     </div>
    </header>
 
-   {/* Main Content */}
-   <main className="flex-grow">
-    <div className="max-w-4xl mx-auto px-4 py-6">
-     {/* Only show wizard if not completed (step < 6) */}
-     {currentStep < 6 && (
-      <StepWizard
-       currentStep={currentStep}
-       totalSteps={6}
-       labels={['車両選択', '塗装タイプ', 'オプション', '見積確認', 'お客様情報', '最終確認']}
-      />
-     )}
-
-     <div className="mt-8">
-      {currentStep === 0 && renderVehicleStep()}
-      {currentStep === 1 && renderPaintStep()}
-      {currentStep === 2 && renderOptionsStep()}
-      {currentStep === 3 && renderSummaryStep()}
-      {currentStep === 4 && renderInquiryForm()}
-      {currentStep === 5 && renderFinalConfirmation()}
-      {currentStep === 6 && renderCompletionStep()}
-     </div>
-    </div>
+   <main className="max-w-3xl mx-auto px-4 py-8">
+    <StepWizard currentStep={currentStep}>
+     {renderVehicleStep()}
+     {renderPaintStep()}
+     {renderOptionsStep()}
+     {renderSummaryStep()}
+     {renderInquiryForm()}
+     {renderConfirmationStep()}
+     {renderCompleteStep()}
+    </StepWizard>
    </main>
 
-   {/* Sticky Bottom Bar (Hide on Form, Confirmation Step, and Completion Step) */}
-   {currentStep < 4 && currentStep !== 6 && (
-    <div className="sticky bottom-0 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] py-2 md:py-4 px-4 z-20 animate-slide-up">
-     <div className="flex items-center justify-between gap-2 md:gap-4">
-      {/* Price Display */}
-      <div className="flex flex-col min-w-0 flex-shrink">
-       <span className="text-[10px] md:text-xs text-gray-500 font-bold uppercase tracking-wide whitespace-nowrap">概算お見積もり</span>
-       <div className="flex items-baseline gap-1">
-        <span className="text-lg md:text-2xl font-bold text-primary-700 whitespace-nowrap">¥{calculateTotal.toLocaleString()}</span>
-        <span className="text-[10px] md:text-sm text-gray-400 whitespace-nowrap">(税込)</span>
-       </div>
-      </div>
-
-      {/* Navigation Buttons */}
-      <div className="flex gap-2 flex-shrink-0">
-       {currentStep > 0 && (
-        <button
-         onClick={handleBack}
-         className="px-2 py-2 md:px-6 md:py-3 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 transition-colors flex items-center gap-1 text-sm md:text-base whitespace-nowrap"
-        >
-         <ChevronLeft size={16} className="md:w-5 md:h-5" />
-         <span className="hidden sm:inline">戻る</span>
-        </button>
-       )}
-
-       {currentStep < 3 ? (
-        <button
-         onClick={handleNext}
-         disabled={(currentStep === 0 && !selectedVehicle) || (currentStep === 1 && !selectedPaint)}
-         className={`
-                     flex items-center gap-1 px-3 py-2 md:px-6 md:py-3 rounded-full font-bold text-white shadow-lg transition-all text-sm md:text-base whitespace-nowrap
-                     ${((currentStep === 0 && !selectedVehicle) || (currentStep === 1 && !selectedPaint))
-           ? 'bg-gray-300 cursor-not-allowed shadow-none'
-           : 'bg-primary-600 hover:bg-primary-700 hover:shadow-primary-200 hover:-translate-y-0.5'
-          }
-                   `}
-        >
-         次へ
-         <ChevronRight size={16} className="md:w-5 md:h-5" />
-        </button>
-       ) : (
-        <button
-         onClick={handleNext}
-         className="px-3 py-2 md:px-6 md:py-3 rounded-full bg-primary-600 text-white font-bold hover:bg-primary-700 shadow-lg flex items-center gap-1 text-sm md:text-base whitespace-nowrap"
-        >
-         この内容で確定
-         <ChevronRight size={16} className="md:w-5 md:h-5" />
-        </button>
-       )}
-      </div>
+   {/* Footer Navigation (only for first 3 steps) */}
+   {currentStep < 3 && (
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-40 safe-area-bottom">
+     <div className="max-w-3xl mx-auto flex gap-4">
+      <button
+       onClick={handleBack}
+       disabled={currentStep === 0}
+       className={`
+        flex-1 py-3 px-4 rounded-xl font-bold border-2 transition-colors
+        ${currentStep === 0
+         ? 'border-gray-100 text-gray-300 cursor-not-allowed'
+         : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+        }
+       `}
+      >
+       戻る
+      </button>
+      <button
+       onClick={handleNext}
+       disabled={
+        (currentStep === 0 && !selectedVehicle) ||
+        (currentStep === 1 && !selectedPaint)
+       }
+       className={`
+        flex-[2] py-3 px-4 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 transition-all
+        ${((currentStep === 0 && !selectedVehicle) || (currentStep === 1 && !selectedPaint))
+         ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
+         : 'bg-primary-600 text-white shadow-primary-200 hover:bg-primary-700 hover:shadow-xl hover:-translate-y-0.5'
+        }
+       `}
+      >
+       次へ進む <ChevronRight size={20} />
+      </button>
      </div>
     </div>
    )}
   </div>
  );
-}; export default App;
+};
+
+export default App;

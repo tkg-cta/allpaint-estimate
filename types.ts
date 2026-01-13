@@ -33,6 +33,7 @@ export interface OptionItem {
  id: string;
  name: string;
  description?: string;
+ detailDescription?: string; // For modal content
  pricingType: PricingType;
  price: number | { [key in VehicleSize]: number };
  unitLabel?: string; // e.g., "1パネル", "1か所"
