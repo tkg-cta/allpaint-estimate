@@ -7,7 +7,7 @@ import { OptionCard } from './components/OptionCard';
 import { VehicleCard } from './components/VehicleCard';
 import { PaintCard } from './components/PaintCard';
 import { Modal } from './components/Modal';
-import { ChevronRight, ChevronLeft, Car, ArrowRight, RotateCcw, Calendar, Mail, Phone, User, Send, Clock, CheckCircle, Edit2, Loader2, MessageCircle, AlertCircle, Info } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Car, ArrowRight, RotateCcw, Calendar, Mail, Phone, User, Send, Clock, CheckCircle, Edit2, Loader2, MessageCircle, AlertCircle, Info, X } from 'lucide-react';
 import {
  validateEmail,
  validatePhoneNumber,
@@ -195,7 +195,7 @@ const App: React.FC = () => {
   }
 
   Object.entries(selectedOptions).forEach(([optionId, value]) => {
-   const option = OPTIONS.find(o => o.id === optionId);
+   const option = optionsData.find(o => o.id === optionId);
    if (!option || !selectedVehicle) return;
 
    let price = 0;
@@ -316,7 +316,8 @@ const App: React.FC = () => {
   const detailedOptions = Object.entries(selectedOptions)
    .map(([id, value]) => {
     if (!value) return null;
-    const option = OPTIONS.find(o => o.id === id);
+    // ★修正: 動的に取得した optionsData を使用
+    const option = optionsData.find(o => o.id === id);
     if (!option || !selectedVehicle) return null;
 
     let price = 0;
@@ -333,6 +334,16 @@ const App: React.FC = () => {
   // ★セキュリティ: フォームデータをサニタイズ
   const sanitizedFormData = sanitizeFormData(formData);
 
+  // ★ローカル開発用のモックトークン設定
+  let finalLineUserId = lineUserId;
+  let finalLiffIdToken = liffIdToken;
+
+  if (import.meta.env.DEV) {
+   console.log('🔧 Running in DEV mode: Using mock LIFF tokens');
+   finalLineUserId = 'MOCK_USER_ID_FOR_LOCAL_DEV';
+   finalLiffIdToken = 'MOCK_ID_TOKEN_FOR_LOCAL_DEV';
+  }
+
   const payload = {
    customer: sanitizedFormData,
    quote: {
@@ -342,8 +353,8 @@ const App: React.FC = () => {
     totalPrice: calculateTotal
    },
    // ↓ ★追加: GAS側で「誰からのアクセスか」を知るためにIDを一緒に送る
-   lineUserId: lineUserId,
-   liffIdToken: liffIdToken // Add liffIdToken here
+   lineUserId: finalLineUserId,
+   liffIdToken: finalLiffIdToken
   };
 
   try {
@@ -465,23 +476,25 @@ const App: React.FC = () => {
     <p className="text-gray-500 mb-4">お車の状態やご希望に合わせてオプションをお選びください。</p>
 
     {/* Category Tabs */}
-    <div className="flex overflow-x-auto pb-2 mb-4 -mx-4 px-4 scrollbar-hide">
-     <div className="flex gap-2">
-      {categories.map((cat) => (
-       <button
-        key={cat.id}
-        onClick={() => setActiveCategory(cat.id)}
-        className={`
-         whitespace-nowrap px-4 py-2 rounded-full text-sm font-bold transition-all
+    <div className="flex justify-center mb-6">
+     <div className="max-w-full overflow-x-auto scrollbar-hide">
+      <div className="inline-flex bg-gray-100 p-1 rounded-lg whitespace-nowrap">
+       {categories.map((cat) => (
+        <button
+         key={cat.id}
+         onClick={() => setActiveCategory(cat.id)}
+         className={`
+         px-4 py-1.5 rounded-md text-sm font-bold transition-all
          ${activeCategory === cat.id
-          ? 'bg-primary-600 text-white shadow-md'
-          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-         }
+           ? 'bg-white text-primary-600 shadow-sm'
+           : 'text-gray-500 hover:text-gray-700'
+          }
         `}
-       >
-        {cat.label}
-       </button>
-      ))}
+        >
+         {cat.label}
+        </button>
+       ))}
+      </div>
      </div>
     </div>
 
@@ -1051,10 +1064,16 @@ const App: React.FC = () => {
     自動返信メールをお送りしましたのでご確認ください。
    </p>
    <button
-    onClick={() => window.location.reload()}
+    onClick={() => {
+     if (liff.isInClient()) {
+      liff.closeWindow();
+     } else {
+      window.close(); alert('LINEアプリに戻るか、ブラウザのタブを閉じてください。');
+     }
+    }}
     className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-primary-600 text-white font-bold hover:bg-primary-700 transition-colors shadow-lg shadow-primary-200"
    >
-    <RotateCcw size={20} /> トップへ戻る
+    <X size={20} /> お見積もりページを閉じてLINEに戻る
    </button>
   </div>
  );
@@ -1069,15 +1088,17 @@ const App: React.FC = () => {
       <h1 className="font-bold text-xl tracking-tight">Allpaint Simulator</h1>
      </div>
      <div className="text-sm font-bold text-primary-600 bg-primary-50 px-3 py-1 rounded-full">
-      Step {currentStep + 1}/6
+      Step {currentStep + 1}/7
      </div>
     </div>
     {/* Progress Bar */}
-    <div className="h-1 bg-gray-100 w-full">
-     <div
-      className="h-full bg-primary-500 transition-all duration-500 ease-out"
-      style={{ width: `${((currentStep + 1) / 6) * 100}%` }}
-     />
+    <div className="h-1.5 bg-gray-100 w-full flex">
+     {[...Array(7)].map((_, i) => (
+      <div
+       key={i}
+       className={`h-full flex-1 transition-colors duration-500 ${i <= currentStep ? 'bg-primary-500' : 'bg-transparent'}`}
+      />
+     ))}
     </div>
    </header>
 

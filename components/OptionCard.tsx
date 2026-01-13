@@ -1,6 +1,6 @@
 import React from 'react';
 import { OptionItem, VehicleSize, PricingType } from '../types';
-import { Check, Plus, Minus, ShoppingCart } from 'lucide-react';
+import { Check, Plus, Minus } from 'lucide-react';
 
 interface OptionCardProps {
  option: OptionItem;
@@ -134,7 +134,7 @@ export const OptionCard: React.FC<OptionCardProps> = ({ option, vehicleSize, val
         }
               `}
       >
-       {isSelected ? <Check size={20} strokeWidth={3} /> : <ShoppingCart size={18} />}
+       {isSelected ? <Check size={20} strokeWidth={3} /> : <Check size={20} className="text-gray-300" />}
       </button>
      )}
     </div>
