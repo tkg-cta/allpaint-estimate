@@ -133,8 +133,13 @@ const App: React.FC = () => {
 
     const data = await response.json();
     if (data && data.options && Array.isArray(data.options)) {
-     console.log("Options fetched from GAS:", data.options);
-     setOptionsData(data.options);
+     // CMSの大文字・小文字表記ブレを吸収するため、pricingTypeを小文字に正規化する
+     const normalizedOptions = data.options.map((opt: any) => ({
+      ...opt,
+      pricingType: opt.pricingType ? String(opt.pricingType).toLowerCase() : opt.pricingType
+     }));
+     console.log("Options fetched from GAS:", normalizedOptions);
+     setOptionsData(normalizedOptions);
     } else {
      console.warn("Invalid data format from GAS, using fallback.");
     }
